@@ -8,6 +8,7 @@ os.environ['MKL_NUM_THREADS'] = '1'
 
 from diffusion_lib.denoising_diffusion_pytorch_1d import GaussianDiffusion1D, Trainer1D
 from models import EBM, DiffusionWrapper
+from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
 from models import GraphEBM, GraphReverse, GNNConvEBM, GNNDiffusionWrapper, GNNConvDiffusionWrapper, GNNConv1DEBMV2, GNNConv1DV2DiffusionWrapper, GNNConv1DReverse
 from dataset import Addition, LowRankDataset, Inverse
@@ -40,7 +41,7 @@ parser = argparse.ArgumentParser(description='Train Diffusion Reasoning Model')
 
 parser.add_argument('--dataset', default='inverse', type=str, help='dataset to evaluate')
 parser.add_argument('--inspect-dataset', action='store_true', help='run an IPython embed interface after loading the dataset')
-parser.add_argument('--model', default='mlp', type=str, choices=['mlp', 'mlp-reverse', 'sudoku', 'sudoku-latent', 'sudoku-transformer', 'sudoku-reverse', 'gnn', 'gnn-reverse', 'gnn-conv', 'gnn-conv-1d', 'gnn-conv-1d-v2', 'gnn-conv-1d-v2-reverse'])
+parser.add_argument('--model', default='mlp', type=str, choices=['mlp', 'mlp-reverse', 'mlp-patch','sudoku', 'sudoku-latent', 'sudoku-transformer', 'sudoku-reverse', 'gnn', 'gnn-reverse', 'gnn-conv', 'gnn-conv-1d', 'gnn-conv-1d-v2', 'gnn-conv-1d-v2-reverse']) # PATCHWISE_ADDITION
 parser.add_argument('--load-milestone', type=str, default=None, help='load a model from a milestone')
 parser.add_argument('--batch_size', default=2048, type=int, help='size of batch of input to use')
 parser.add_argument('--diffusion_steps', default=10, type=int, help='number of diffusion time steps (default: 10)')
@@ -53,6 +54,12 @@ parser.add_argument('--evaluate', action='store_true', default=False)
 parser.add_argument('--latent', action='store_true', default=False)
 parser.add_argument('--ood', action='store_true', default=False)
 parser.add_argument('--baseline', action='store_true', default=False)
+
+# PATCHWISE_ADDITION
+parser.add_argument('--patch_size', type=int, default=None, help='patch size to use for PatchEBM; must divide original input dimension') # PATCHWISE_ADDITION
+# parser.add_argument('--inference_type', default = 'normal', type=str, choices = ['normal', 'patchwise_by_time', 'patchwise_by_patch', 'patchwise_by_energy', 'patchwise_global_to_local', 'patchwise_select_times'], help = 'during inference do we denoise by patch or the entire matrix at each step')
+parser.add_argument('--energy_weight_gt', default = 0.2, type=float, help='weighting to force ground truth samples ot have energy 0; between 0 and 1')
+parser.add_argument('--test_baseline', default=False, type=str2bool, help='True only when t_patches should simulate non-patchwise t')
 
 
 if __name__ == "__main__":
