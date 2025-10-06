@@ -6,7 +6,8 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
-from diffusion_lib.denoising_diffusion_pytorch_1d import GaussianDiffusion1D, Trainer1D
+from diffusion_lib.denoising_diffusion_models import GaussianDiffusion1D
+from diffusion_lib.denoising_diffusion_trainers import Trainer1D
 from models import EBM, DiffusionWrapper
 from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
@@ -19,11 +20,12 @@ import torch
 
 import argparse
 
-try:
-    import mkl
-    mkl.set_num_threads(1)
-except ImportError:
-    print('Warning: MKL not initialized.')
+# MAX_EDIT: commented this out
+# try:
+#     import mkl
+#     mkl.set_num_threads(1)
+# except ImportError:
+#     print('Warning: MKL not initialized.')
 
 
 def str2bool(x):
