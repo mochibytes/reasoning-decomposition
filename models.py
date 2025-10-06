@@ -160,6 +160,98 @@ class SinusoidalPosEmb(nn.Module):
 def swish(x):
     return x * torch.sigmoid(x)
 
+class PatchEBM(nn.Module):
+    def __init__(self, inp_dim, out_dim, patch_size, is_ebm: bool = True):
+        super(PatchEBM, self).__init__()
+        self.inp_dim = inp_dim
+        self.out_dim = out_dim
+        self.patch_size = patch_size
+        self.num_patches = out_dim // patch_size
+        self.is_ebm = is_ebm
+
+        h = 512
+        fourier_dim, time_dim, pos_dim, context_dim = 128, 128, 64, 256
+
+        assert out_dim % patch_size == 0
+
+        sinu_pos_emb = SinusoidalPosEmb(fourier_dim)
+        self.time_mlp = nn.Sequential(
+            sinu_pos_emb,
+            nn.Linear(fourier_dim, time_dim),
+            nn.GELU(),
+            nn.Linear(time_dim, time_dim)
+        )
+
+        # PATCHWISE_ADDITION: context encoder for processing the entire input
+        self.context_encoder = nn.Sequential(
+            nn.Linear(inp_dim, context_dim),
+            nn.GELU(),
+            nn.Linear(context_dim, context_dim)
+        )
+        
+        # PATCHWISE_ADDITION: position embeddings (one per patch), start with random initialization
+        # this will be learned via backpropagation during training
+        self.pos_embeddings = nn.Parameter(torch.zeros(self.num_patches, pos_dim))
+        nn.init.trunc_normal_(self.pos_embeddings, std=0.02)
+
+        # PATCHWISE_ADDITION: changed input to per-patch features for the model (fc1 and fc4)
+        self.fc1 = nn.Linear(patch_size + context_dim + pos_dim + time_dim, h)
+        self.fc2 = nn.Linear(h, h)
+        self.fc3 = nn.Linear(h, h)
+        self.fc4 = nn.Linear(h, patch_size) # output is prediction per patch, can be made into energy in forward
+
+        self.t_map_fc2 = nn.Linear(time_dim, 2 * h)
+        self.t_map_fc3 = nn.Linear(time_dim, 2 * h)
+
+    def forward(self, *args):
+        x, y, t_patchwise = args 
+        # x.shape is [B, inp_dim] - i.e. the thing to invert/conditioning input
+        # y.shape is [B, num_patches, patch_size] - i.e. the thing to predict/output
+        # t.shape is [B, num_patches] - i.e. the time steps per patch
+
+        batch_size = x.shape[0]
+
+        # PATCHWISE_ADDITION: everything below
+
+        # encode global context (e.g. for matrix inversion, this would be the matrix to invert)
+        global_context = self.context_encoder(x) # [B, context_dim]
+
+        # reshape inputs to patches
+        y_flat = y.reshape(batch_size * self.num_patches, self.patch_size)
+        t_flat = t_patchwise.reshape(batch_size * self.num_patches)
+
+        # time embeddings for all patches
+        t_emb = self.time_mlp(t_flat) # [B * num_patches, time_dim]
+
+        # position embeddings for all patches
+        pos_emb = self.pos_embeddings.unsqueeze(0).expand(batch_size, -1, -1) # [B, num_patches, pos_dim]
+        pos_emb = pos_emb.reshape(batch_size * self.num_patches, -1) # [B * num_patches, pos_dim]
+
+        # make one copy of global context for each patch
+        global_context_expanded = global_context.unsqueeze(1).expand(-1, self.num_patches, -1)
+        global_context_flat = global_context_expanded.reshape(batch_size * self.num_patches, -1) # [B * num_patches, context_dim]
+
+        # concatenate all the features
+        features = torch.cat([y_flat, global_context_flat, pos_emb, t_emb], dim=-1)
+
+        fc2_gain, fc2_bias = torch.chunk(self.t_map_fc2(t_emb), 2, dim=-1)
+        fc3_gain, fc3_bias = torch.chunk(self.t_map_fc3(t_emb), 2, dim=-1)
+
+        # process all patches in parallel in network
+        h = swish(self.fc1(features))
+        h = swish(self.fc2(h) * (fc2_gain + 1) + fc2_bias)
+        h = swish(self.fc3(h) * (fc3_gain + 1) + fc3_bias)
+        output = self.fc4(h) # [B * num_patches, 1 if is_ebm else patch_size]
+
+        if self.is_ebm:
+            output = output.pow(2).sum(dim=-1) # [B * num_patches]
+            output = output.reshape(batch_size, self.num_patches) # [B, num_patches]
+            output = output.sum(dim=-1, keepdim=True) # [B, 1] - total energy for each batch sample
+        else:
+            output = output.reshape(batch_size, self.num_patches, self.patch_size) # [B, num_patches, patch_size]
+
+        return output
+
 
 class EBM(nn.Module):
     def __init__(self, inp_dim, out_dim, is_ebm: bool = True):
@@ -785,6 +877,53 @@ class GNNConv1DReverse(nn.Module):
         n = inp.shape[-2]
         return torch.randn((batch_size, 8, n, shape[0]), device=device)
 
+class PatchDiffusionWrapper(nn.Module):
+    def __init__(self, patch_ebm):
+        super(PatchDiffusionWrapper, self).__init__()
+        self.ebm = patch_ebm
+        self.inp_dim = patch_ebm.inp_dim
+        self.out_dim = patch_ebm.out_dim
+        
+        # add checks for patch_size and num_patches
+        if not hasattr(patch_ebm, 'patch_size'):
+            raise ValueError('PatchDiffusionWrapper only works for PatchEBMs, must have patchsize attribute')
+        if not hasattr(patch_ebm, 'num_patches'):
+            raise ValueError('PatchDiffusionWrapper only works for PatchEBMs, must have num_patches attribute')
+        
+        self.patch_size = patch_ebm.patch_size
+        self.num_patches = patch_ebm.num_patches
+
+        assert self.out_dim == self.num_patches * self.patch_size
+
+        if hasattr(self.ebm, 'is_ebm'):
+            assert self.ebm.is_ebm, 'PatchDiffusionWrapper only works for EBMs, must have is_ebm=True'
+        
+
+    def forward(self, inp, opt_out, t_patchwise, return_energy=False, return_both=False):
+        
+        # patchEBM expects x to be [B, inp_dim] and opt_out to be [B, num_patches, patch_size] and t_patchwise to be [B, num_patches]
+        assert inp.ndim == 2
+        batch_size = inp.shape[0]
+        if opt_out.ndim != 3:
+            opt_out = opt_out.reshape(batch_size, self.num_patches, self.patch_size)
+        if t_patchwise.ndim != 2:
+            t_patchwise = t_patchwise.reshape(batch_size, self.num_patches)
+
+        opt_out.requires_grad_(True)
+        energy = self.ebm(inp, opt_out, t_patchwise)
+
+        if return_energy:
+            return energy # [B, 1]
+
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0]
+
+        # reshape opt_grad to [B, out_dim = num_patches * patch_size]
+        opt_grad = opt_grad.reshape(batch_size, self.out_dim)
+
+        if return_both:
+            return energy, opt_grad # [B, 1] and [B, num_patches * patch_size]
+        else:
+            return opt_grad # [B, num_patches * patch_size]
 
 class DiffusionWrapper(nn.Module):
     def __init__(self, ebm):
