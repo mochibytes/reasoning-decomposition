@@ -434,6 +434,9 @@ class Inverse(data.Dataset):
         self.inp_dim = self.h * self.w
         self.out_dim = self.h * self.w
 
+        seed_map = {'train': 263, 'validation': 511, 'test': 999} # seeds for different splits
+        self.rng = np.random.RandomState(seed_map.get(split, 0)) # split value if in dict, else 0
+
     def __getitem__(self, index):
         """Return a data point and its metadata information.
 
@@ -445,7 +448,7 @@ class Inverse(data.Dataset):
             A_paths(str) - - the path of the image
         """
 
-        R_corrupt = np.random.uniform(-1, 1, (self.h, self.w))
+        R_corrupt = self.rng.uniform(-1, 1, (self.h, self.w))
         R_corrupt = R_corrupt.dot(R_corrupt.transpose())
         # R_corrupt = R_corrupt + 0.5 * np.eye(self.h)
 
