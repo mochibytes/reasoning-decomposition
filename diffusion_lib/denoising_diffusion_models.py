@@ -604,8 +604,11 @@ class PatchGaussianDiffusion1D(nn.Module):
             print(f"Warning: out_shape is {c}, but only the last dimension is used")
             self.out_dim = c[-1]
             self.out_shape = c
-
-        t_patchwise = torch.randint(0, self.num_timesteps, (b, self.num_patches), device=device).long() # [B, num_patches]
+        if self.patch_baseline:
+            t_patchwise = torch.randint(0, self.num_timesteps, (b,), device=device) # create tensor of size b
+            t_patchwise = t_patchwise.unsqueeze(1).expand(-1, self.num_patches).to(device) # [B, num_patches]
+        else:
+            t_patchwise = torch.randint(0, self.num_timesteps, (b, self.num_patches), device=device).long() # [B, num_patches]
 
         return self.p_losses(inp, target, mask, t_patchwise, *args, **kwargs)
         

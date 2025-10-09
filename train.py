@@ -7,7 +7,7 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
 from diffusion_lib.denoising_diffusion_models import GaussianDiffusion1D, PatchGaussianDiffusion1D
-from diffusion_lib.denoising_diffusion_trainers import Trainer1D
+from diffusion_lib.denoising_diffusion_trainers import Trainer1D, PatchTrainer1D
 from models import EBM, DiffusionWrapper
 from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
@@ -285,8 +285,8 @@ if __name__ == "__main__":
     if FLAGS.energy_weight_gt is not None: # PATCHWISE_ADDITION
         kwargs['energy_weight_gt'] = FLAGS.energy_weight_gt
 
-    if FLAGS.model != 'mlp-patch': # PATCHWISE_ADDITION
-        diffusion = GaussianDiffusion1D(
+    if FLAGS.model not in ['mlp-patch']: # PATCHWISE_ADDITION
+        diffusion_fn = GaussianDiffusion1D(
             model,
             seq_length = 32,
             objective = 'pred_noise',  # Alternative pred_x0
@@ -297,9 +297,10 @@ if __name__ == "__main__":
             show_inference_tqdm = False,
             **kwargs
         )
+        trainer_fn = Trainer1D
 
-    elif FLAGS.model == 'mlp-patch': # PATCHWISE_ADDITION
-        diffusion = PatchGaussianDiffusion1D(
+    elif FLAGS.model in ['mlp-patch']: # PATCHWISE_ADDITION
+        diffusion_fn = PatchGaussianDiffusion1D(
             model,
             seq_length = 32,
             objective = 'pred_noise',  # Alternative pred_x0
@@ -310,6 +311,7 @@ if __name__ == "__main__":
             show_inference_tqdm = False,
             **kwargs
         )
+        trainer_fn = PatchTrainer1D
     else:
         assert False, f'Unknown model: {FLAGS.model}'
 
@@ -327,8 +329,8 @@ if __name__ == "__main__":
     else:
         autoencode_model = None
 
-    trainer = Trainer1D(
-        diffusion,
+    trainer = trainer_fn(
+        diffusion_fn,
         dataset,
         train_batch_size = FLAGS.batch_size,
         validation_batch_size = validation_batch_size,
