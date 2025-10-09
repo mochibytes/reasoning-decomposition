@@ -7,7 +7,7 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
 from diffusion_lib.denoising_diffusion_models import GaussianDiffusion1D, PatchGaussianDiffusion1D
-from diffusion_lib.denoising_diffusion_trainers import Trainer1D, PatchTrainer1D
+from diffusion_lib.denoising_diffusion_trainers import Trainer1D
 from models import EBM, DiffusionWrapper
 from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
@@ -311,7 +311,7 @@ if __name__ == "__main__":
             show_inference_tqdm = False,
             **kwargs
         )
-        trainer_fn = PatchTrainer1D
+        trainer_fn = Trainer1D
     else:
         assert False, f'Unknown model: {FLAGS.model}'
 
