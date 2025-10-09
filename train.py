@@ -1,5 +1,6 @@
 import os
 import os.path as osp
+from datetime import datetime
 
 # Prevent numpy over multithreading
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -60,7 +61,7 @@ parser.add_argument('--baseline', action='store_true', default=False)
 # PATCHWISE_ADDITION
 parser.add_argument('--patch_size', type=int, default=None, help='patch size to use for PatchEBM; must divide original input dimension') # PATCHWISE_ADDITION
 # parser.add_argument('--inference_type', default = 'normal', type=str, choices = ['normal', 'patchwise_by_time', 'patchwise_by_patch', 'patchwise_by_energy', 'patchwise_global_to_local', 'patchwise_select_times'], help = 'during inference do we denoise by patch or the entire matrix at each step')
-parser.add_argument('--energy_weight_gt', default = 0.2, type=float, help='weighting to force ground truth samples ot have energy 0; between 0 and 1')
+parser.add_argument('--energy_weight_gt', default = None, type=float, help='weighting to force ground truth samples ot have energy 0; between 0 and 1')
 parser.add_argument('--patch_baseline', default=False, type=str2bool, help='True only when t_patches should simulate non-patchwise t')
 
 
@@ -70,7 +71,7 @@ if __name__ == "__main__":
     validation_dataset = None
     extra_validation_datasets = dict()
     extra_validation_every_mul = 10
-    save_and_sample_every = 1000
+    save_and_sample_every = 500
     validation_batch_size = 256
 
     if FLAGS.dataset == "addition":
@@ -284,6 +285,9 @@ if __name__ == "__main__":
     
     if FLAGS.energy_weight_gt is not None: # PATCHWISE_ADDITION
         kwargs['energy_weight_gt'] = FLAGS.energy_weight_gt
+    
+    if FLAGS.dataset == 'inverse':
+        results_filename = f'./results/dataset_{FLAGS.dataset}_rank_{FLAGS.rank}_model_{FLAGS.model}_diffsteps_{FLAGS.diffusion_steps}_start_time_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
 
     if FLAGS.model not in ['mlp-patch']: # PATCHWISE_ADDITION
         diffusion_fn = GaussianDiffusion1D(
@@ -335,7 +339,7 @@ if __name__ == "__main__":
         train_batch_size = FLAGS.batch_size,
         validation_batch_size = validation_batch_size,
         train_lr = 1e-4,
-        train_num_steps = 1300000,         # total training steps
+        train_num_steps = 50000, # 1300000,         # total training steps
         gradient_accumulate_every = 1,    # gradient accumulation steps
         ema_decay = 0.995,                # exponential moving average decay
         data_workers = FLAGS.data_workers,
@@ -349,7 +353,8 @@ if __name__ == "__main__":
         save_and_sample_every = save_and_sample_every,
         evaluate_first = FLAGS.evaluate,  # run one evaluation first
         latent = FLAGS.latent,  # whether we are doing reasoning in the latent space
-        autoencode_model = autoencode_model
+        autoencode_model = autoencode_model,
+        results_filename = results_filename
     )
 
     if FLAGS.load_milestone is not None:

@@ -13,11 +13,14 @@ from tqdm.auto import tqdm
 
 import os.path as osp
 import time
+from datetime import datetime
+import os
 
 from diffusion_lib.denoising_diffusion_models import PatchGaussianDiffusion1D, GaussianDiffusion1D
 from diffusion_lib.denoising_diffusion_utils import * # MODULE_REARRANGEMENT
 from diffusion_lib.denoising_diffusion_eval_metrics import * # MODULE_REARRANGEMENT
 
+import time
 
 class Trainer1D(object):
     def __init__(
@@ -47,7 +50,8 @@ class Trainer1D(object):
         extra_validation_every_mul = 10,
         evaluate_first = False,
         latent = False,
-        autoencode_model = None
+        autoencode_model = None,
+        results_filename = None
     ):
         super().__init__()
 
@@ -57,6 +61,19 @@ class Trainer1D(object):
             split_batches = split_batches,
             mixed_precision = 'fp16' if fp16 else 'no'
         )
+
+        # LOGGING ADDITION START
+        os.makedirs(os.path.dirname(results_filename), exist_ok=True)
+        file_exists = osp.exists(results_filename)
+        file_has_content = file_exists and osp.getsize(results_filename) > 0
+
+        self.results_file = open(results_filename, 'a') 
+
+        if not file_has_content:
+            header = "iteration,milestone,datasplit,mse\n"  # Adjust columns as needed
+            self.results_file.write(header)
+            self.results_file.flush()
+        # LOGGING ADDITION END
 
         self.accelerator.native_amp = amp
 
@@ -245,8 +262,8 @@ class Trainer1D(object):
                     # if True:
                     if self.step != 0 and self.step % self.save_and_sample_every == 0:
                         milestone = self.step // self.save_and_sample_every
-
-                        self.save(milestone)
+                        if self.step >= self.train_num_steps:
+                            self.save(milestone)
 
                         if self.latent:
                             self.evaluate(device, milestone, inp=inp, label=label_gt, mask=mask_latent)
@@ -282,6 +299,8 @@ class Trainer1D(object):
                     mse_error = (all_samples - label).pow(2).mean()
                     rows = [('mse_error', mse_error)]
                     print(tabulate(rows))
+
+                    self.results_file.write(f'{self.step},{milestone},training_mse,{mse_error}\n') # LOGGING ADDITION: train mse
                 elif self.metric == 'bce':
                     assert len(all_samples_list) == 1
                     summary = binary_classification_accuracy_4(all_samples_list[0], label)
@@ -387,6 +406,7 @@ class Trainer1D(object):
                     # all_samples = torch.cat(all_samples_list, dim = 0)
                     mse_error = (samples - label).pow(2).mean()
                     meters['mse'].update(mse_error, n=inp.size(0))
+                    self.results_file.write(f'{self.step},{milestone},{prefix},{mse_error}\n') # LOGGING ADDITION: validation mse
                     if i > 20:
                         break
                 elif self.metric == 'bce':

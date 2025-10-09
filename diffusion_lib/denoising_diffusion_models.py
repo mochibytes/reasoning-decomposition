@@ -190,12 +190,12 @@ class PatchGaussianDiffusion1D(nn.Module):
 
     def q_posterior(self, x_start, x_t, t_patchwise):
         # PATCHWISE_EDIT_DONE
-        if x_t.ndim != 3:
-            x_t = patch_reshape(x_t, self.num_patches, self.patch_size, to_dims = 3)
+        if x_start.ndim != 3:
+            x_start = patch_reshape(x_start, self.num_patches, self.patch_size, to_dims = 3)
         if t_patchwise.ndim != 2:
             t_patchwise = patch_reshape(t_patchwise, self.num_patches, 1, to_dims = 2)
-        if noise.ndim != 3:
-            noise = patch_reshape(noise, self.num_patches, self.patch_size, to_dims = 3)
+        if x_t.ndim != 3:
+            x_t = patch_reshape(x_t, self.num_patches, self.patch_size, to_dims = 3)
 
         posterior_mean_3d = (
             extract_patchwise(self.posterior_mean_coef1, t_patchwise, x_t) * x_start +
@@ -290,10 +290,10 @@ class PatchGaussianDiffusion1D(nn.Module):
         with torch.enable_grad():
             for i in range(step):
                 energy, grad = self.model(inp, img, t_patchwise, return_both=True) # energy is [B, 1] and grad is [B, num_patches * patch_size]
-                grad = patch_reshape(grad, self.num_patches, self.patch_size, to_dims = 3)
-                img = patch_reshape(img, self.num_patches, self.patch_size, to_dims = 3)
-                img_new = img - extract_patchwise(self.opt_step_size, t_patchwise, grad) * grad * sf  # / (i + 1) ** 0.5 # [B, num_patches, patch_size]
-                img_new = patch_reshape(img_new, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+                grad_3d = patch_reshape(grad, self.num_patches, self.patch_size, to_dims = 3)
+                img_3d = patch_reshape(img, self.num_patches, self.patch_size, to_dims = 3)
+                img_new_3d = img_3d - extract_patchwise(self.opt_step_size, t_patchwise, grad_3d) * grad_3d * sf  # / (i + 1) ** 0.5 # [B, num_patches, patch_size]
+                img_new = patch_reshape(img_new_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
 
                 if mask is not None:
                     img_new = img_new * (1 - mask) + mask * data_cond
@@ -303,10 +303,10 @@ class PatchGaussianDiffusion1D(nn.Module):
                 else:
                     sf = 1.0
 
-                img_new = patch_reshape(img_new, self.num_patches, self.patch_size, to_dims = 3)
-                max_val = extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, img_new)[0, 0, 0] * sf # scalar
-                img_new = patch_reshape(img_new, self.num_patches, self.patch_size, to_dims = 2)
-                img_new = torch.clamp(img_new, -max_val, max_val)
+                img_new_masked_3d = patch_reshape(img_new, self.num_patches, self.patch_size, to_dims = 3)
+                max_val = extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, img_new_masked_3d)[0, 0, 0] * sf # scalar
+                img_new_masked_3d = torch.clamp(img_new_masked_3d, -max_val, max_val)
+                img_new = patch_reshape(img_new_masked_3d, self.num_patches, self.patch_size, to_dims = 2)
 
                 energy_new = self.model(inp, img_new, t_patchwise, return_energy=True) # [B, 1]
                 if len(energy_new.shape) == 2:
@@ -419,10 +419,11 @@ class PatchGaussianDiffusion1D(nn.Module):
             x_start = patch_reshape(x_start, self.num_patches, self.patch_size, to_dims = 3)
         if t_patchwise.ndim != 2:
             t_patchwise = patch_reshape(t_patchwise, self.num_patches, 1, to_dims = 2)
+
+        noise = default(noise, lambda: torch.randn_like(x_start))
         if noise.ndim != 3:
             noise = patch_reshape(noise, self.num_patches, self.patch_size, to_dims = 3)
 
-        noise = default(noise, lambda: torch.randn_like(x_start))
 
         out_3d = (
             extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, x_start) * x_start +
@@ -594,8 +595,8 @@ class PatchGaussianDiffusion1D(nn.Module):
     def forward(self, inp, target, mask, *args, **kwargs):
         # PATCHWISE_EDIT_DONE
         b, *c = target.shape
-        print(f"inp shape: {inp.shape}")
-        print(f"target shape: {target.shape}")
+        # print(f"inp shape: {inp.shape}")
+        # print(f"target shape: {target.shape}")
         device = target.device
         if len(c) == 1:
             self.out_dim = c[0]

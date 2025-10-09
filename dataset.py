@@ -448,16 +448,16 @@ class Inverse(data.Dataset):
             A_paths(str) - - the path of the image
         """
 
-        R_corrupt = self.rng.uniform(-1, 1, (self.h, self.w))
+        R_corrupt = self.rng.uniform(-1, 1, (self.h, self.w)).astype(np.float32)
         R_corrupt = R_corrupt.dot(R_corrupt.transpose())
         # R_corrupt = R_corrupt + 0.5 * np.eye(self.h)
 
         if self.ood:
-            R_corrupt = R_corrupt + R_corrupt.transpose() + 0.1 * np.eye(self.h)
+            R_corrupt = R_corrupt + R_corrupt.transpose() + 0.1 * np.eye(self.h, dtype=np.float32)
         else:
-            R_corrupt = R_corrupt + R_corrupt.transpose() + 0.5 * np.eye(self.h)
+            R_corrupt = R_corrupt + R_corrupt.transpose() + 0.5 * np.eye(self.h, dtype=np.float32)
 
-        R = np.linalg.inv(R_corrupt)
+        R = np.linalg.inv(R_corrupt).astype(np.float32)
         # R = np.linalg.solve(R_corrupt, np.eye(self.h))
 
         return R_corrupt.flatten(), R.flatten()
