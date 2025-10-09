@@ -301,6 +301,7 @@ class Trainer1D(object):
                     print(tabulate(rows))
 
                     self.results_file.write(f'{self.step},{milestone},training_mse,{mse_error}\n') # LOGGING ADDITION: train mse
+                    self.results_file.flush()
                 elif self.metric == 'bce':
                     assert len(all_samples_list) == 1
                     summary = binary_classification_accuracy_4(all_samples_list[0], label)
@@ -407,6 +408,7 @@ class Trainer1D(object):
                     mse_error = (samples - label).pow(2).mean()
                     meters['mse'].update(mse_error, n=inp.size(0))
                     self.results_file.write(f'{self.step},{milestone},{prefix},{mse_error}\n') # LOGGING ADDITION: validation mse
+                    self.results_file.flush()
                     if i > 20:
                         break
                 elif self.metric == 'bce':
