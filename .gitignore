@@ -17,9 +17,10 @@ ENV/
 *.swo
 
 # Results and logs
-results/
+# results/
 *.log
 *.txt
+*.pt
 
 # Jupyter
 .ipynb_checkpoints/
