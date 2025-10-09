@@ -263,8 +263,8 @@ class Trainer1D(object):
                     # if True:
                     if self.step != 0 and self.step % self.save_and_sample_every == 0:
                         milestone = self.step // self.save_and_sample_every
-                        if self.step >= self.train_num_steps:
-                            self.save(milestone)
+                        # if self.step >= self.train_num_steps:
+                        #     self.save(milestone)
 
                         if self.latent:
                             self.evaluate(device, milestone, inp=inp, label=label_gt, mask=mask_latent)
