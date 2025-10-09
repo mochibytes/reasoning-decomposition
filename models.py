@@ -241,10 +241,10 @@ class PatchEBM(nn.Module):
         h = swish(self.fc1(features))
         h = swish(self.fc2(h) * (fc2_gain + 1) + fc2_bias)
         h = swish(self.fc3(h) * (fc3_gain + 1) + fc3_bias)
-        output = self.fc4(h) # [B * num_patches, 1 if is_ebm else patch_size]
+        output = self.fc4(h) # [B * num_patches, patch_size]
 
         if self.is_ebm:
-            output = output.pow(2).sum(dim=-1) # [B * num_patches]
+            output = output.pow(2).sum(dim=-1) # [B * num_patches], gets one energy per patch
             output = output.reshape(batch_size, self.num_patches) # [B, num_patches]
             output = output.sum(dim=-1, keepdim=True) # [B, 1] - total energy for each batch sample
         else:
@@ -902,7 +902,8 @@ class PatchDiffusionWrapper(nn.Module):
     def forward(self, inp, opt_out, t_patchwise, return_energy=False, return_both=False):
         
         # patchEBM expects x to be [B, inp_dim] and opt_out to be [B, num_patches, patch_size] and t_patchwise to be [B, num_patches]
-        assert inp.ndim == 2
+        if inp.ndim != 2:
+            inp = inp.reshape(inp.shape[0], self.inp_dim)
         batch_size = inp.shape[0]
         if opt_out.ndim != 3:
             opt_out = opt_out.reshape(batch_size, self.num_patches, self.patch_size)

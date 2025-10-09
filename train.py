@@ -6,7 +6,7 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
 
-from diffusion_lib.denoising_diffusion_models import GaussianDiffusion1D
+from diffusion_lib.denoising_diffusion_models import GaussianDiffusion1D, PatchGaussianDiffusion1D
 from diffusion_lib.denoising_diffusion_trainers import Trainer1D
 from models import EBM, DiffusionWrapper
 from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
@@ -61,7 +61,7 @@ parser.add_argument('--baseline', action='store_true', default=False)
 parser.add_argument('--patch_size', type=int, default=None, help='patch size to use for PatchEBM; must divide original input dimension') # PATCHWISE_ADDITION
 # parser.add_argument('--inference_type', default = 'normal', type=str, choices = ['normal', 'patchwise_by_time', 'patchwise_by_patch', 'patchwise_by_energy', 'patchwise_global_to_local', 'patchwise_select_times'], help = 'during inference do we denoise by patch or the entire matrix at each step')
 parser.add_argument('--energy_weight_gt', default = 0.2, type=float, help='weighting to force ground truth samples ot have energy 0; between 0 and 1')
-parser.add_argument('--test_baseline', default=False, type=str2bool, help='True only when t_patches should simulate non-patchwise t')
+parser.add_argument('--patch_baseline', default=False, type=str2bool, help='True only when t_patches should simulate non-patchwise t')
 
 
 if __name__ == "__main__":
@@ -207,6 +207,14 @@ if __name__ == "__main__":
             out_dim = dataset.out_dim,
             is_ebm = False,
         )
+    elif FLAGS.model == 'mlp-patch': # PATCHWISE_ADDITION
+        model = PatchEBM(
+            inp_dim = dataset.inp_dim,
+            out_dim = dataset.out_dim,
+            patch_size = FLAGS.patch_size
+        )
+        model = PatchDiffusionWrapper(model)
+
     elif FLAGS.model == 'sudoku':
         model = SudokuEBM(
             inp_dim = dataset.inp_dim,
@@ -270,18 +278,40 @@ if __name__ == "__main__":
 
     if FLAGS.dataset in ['shortest-path', 'shortest-path-1d']:
         kwargs['shortest_path'] = True
+    
+    if FLAGS.patch_baseline: # PATCHWISE_ADDITION
+        kwargs['patch_baseline'] = True 
+    
+    if FLAGS.energy_weight_gt is not None: # PATCHWISE_ADDITION
+        kwargs['energy_weight_gt'] = FLAGS.energy_weight_gt
 
-    diffusion = GaussianDiffusion1D(
-        model,
-        seq_length = 32,
-        objective = 'pred_noise',  # Alternative pred_x0
-        timesteps = FLAGS.diffusion_steps,  # number of steps
-        sampling_timesteps = FLAGS.diffusion_steps,  # number of sampling timesteps (using ddim for faster inference [see citation for ddim paper]),
-        supervise_energy_landscape = FLAGS.supervise_energy_landscape,
-        use_innerloop_opt = FLAGS.use_innerloop_opt,
-        show_inference_tqdm = False,
-        **kwargs
-    )
+    if FLAGS.model != 'mlp-patch': # PATCHWISE_ADDITION
+        diffusion = GaussianDiffusion1D(
+            model,
+            seq_length = 32,
+            objective = 'pred_noise',  # Alternative pred_x0
+            timesteps = FLAGS.diffusion_steps,  # number of steps
+            sampling_timesteps = FLAGS.diffusion_steps,  # number of sampling timesteps (using ddim for faster inference [see citation for ddim paper]),
+            supervise_energy_landscape = FLAGS.supervise_energy_landscape,
+            use_innerloop_opt = FLAGS.use_innerloop_opt,
+            show_inference_tqdm = False,
+            **kwargs
+        )
+
+    elif FLAGS.model == 'mlp-patch': # PATCHWISE_ADDITION
+        diffusion = PatchGaussianDiffusion1D(
+            model,
+            seq_length = 32,
+            objective = 'pred_noise',  # Alternative pred_x0
+            timesteps = FLAGS.diffusion_steps,  # number of steps
+            sampling_timesteps = FLAGS.diffusion_steps,  # number of sampling timesteps (using ddim for faster inference [see citation for ddim paper]),
+            supervise_energy_landscape = FLAGS.supervise_energy_landscape,
+            use_innerloop_opt = FLAGS.use_innerloop_opt,
+            show_inference_tqdm = False,
+            **kwargs
+        )
+    else:
+        assert False, f'Unknown model: {FLAGS.model}'
 
     result_dir = osp.join('results', f'ds_{FLAGS.dataset}', f'model_{FLAGS.model}')
     if FLAGS.diffusion_steps != 100:
