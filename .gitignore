@@ -19,7 +19,7 @@ ENV/
 # Results and logs
 # results/
 *.log
-*.txt
+# *.txt
 *.pt
 
 # Jupyter
