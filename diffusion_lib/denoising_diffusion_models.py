@@ -132,11 +132,12 @@ class PatchGaussianDiffusion1D(nn.Module):
         if noise.ndim != 3:
             noise = patch_reshape(noise, self.num_patches, self.patch_size, to_dims = 3)
 
-        out = (
+        out_3d = (
             extract_patchwise(self.sqrt_recip_alphas_cumprod, t_patchwise, x_t) * x_t -
             extract_patchwise(self.sqrt_recipm1_alphas_cumprod, t_patchwise, x_t) * noise
         ) # [B, num_patches, patch_size]
-        return patch_reshape(out, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        out_2d = patch_reshape(out_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        return out_2d
 
     def predict_noise_from_start(self, x_t, t_patchwise, x0):
         # PATCHWISE_EDIT_DONE
@@ -147,11 +148,12 @@ class PatchGaussianDiffusion1D(nn.Module):
         if x0.ndim != 3:
             x0 = patch_reshape(x0, self.num_patches, self.patch_size, to_dims = 3)
 
-        out = (
+        out_3d = (
             (extract_patchwise(self.sqrt_recip_alphas_cumprod, t_patchwise, x_t) * x_t - x0) / \
             extract_patchwise(self.sqrt_recipm1_alphas_cumprod, t_patchwise, x_t)
         ) # [B, num_patches, patch_size]
-        return patch_reshape(out, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        out_2d = patch_reshape(out_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        return out_2d
 
     def predict_v(self, x_start, t_patchwise, noise):
         # PATCHWISE_EDIT_DONE
@@ -162,12 +164,13 @@ class PatchGaussianDiffusion1D(nn.Module):
         if noise.ndim != 3:
             noise = patch_reshape(noise, self.num_patches, self.patch_size, to_dims = 3)
 
-        out = (
+        out_3d = (
             extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, x_start) * noise -
             extract_patchwise(self.sqrt_one_minus_alphas_cumprod, t_patchwise, x_start) * x_start
         ) # [B, num_patches, patch_size]
 
-        return patch_reshape(out, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        out_2d = patch_reshape(out_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        return out_2d
 
     def predict_start_from_v(self, x_t, t_patchwise, v):
         # PATCHWISE_EDIT_DONE
@@ -177,12 +180,13 @@ class PatchGaussianDiffusion1D(nn.Module):
             t_patchwise = patch_reshape(t_patchwise, self.num_patches, 1, to_dims = 2)
         if v.ndim != 3:
             v = patch_reshape(v, self.num_patches, self.patch_size, to_dims = 3)
-        out = (
+        out_3d = (
             extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, x_t) * x_t -
             extract_patchwise(self.sqrt_one_minus_alphas_cumprod, t_patchwise, x_t) * v
         ) # [B, num_patches, patch_size]
 
-        return patch_reshape(out, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        out_2d = patch_reshape(out_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        return out_2d
 
     def q_posterior(self, x_start, x_t, t_patchwise):
         # PATCHWISE_EDIT_DONE
@@ -193,16 +197,16 @@ class PatchGaussianDiffusion1D(nn.Module):
         if noise.ndim != 3:
             noise = patch_reshape(noise, self.num_patches, self.patch_size, to_dims = 3)
 
-        posterior_mean = (
+        posterior_mean_3d = (
             extract_patchwise(self.posterior_mean_coef1, t_patchwise, x_t) * x_start +
             extract_patchwise(self.posterior_mean_coef2, t_patchwise, x_t) * x_t
         ) # [B, num_patches, patch_size]
-        posterior_variance = extract_patchwise(self.posterior_variance, t_patchwise, x_t) # [B, num_patches, patch_size]
-        posterior_log_variance_clipped = extract_patchwise(self.posterior_log_variance_clipped, t_patchwise, x_t) # [B, num_patches, patch_size]
+        posterior_variance_3d = extract_patchwise(self.posterior_variance, t_patchwise, x_t) # [B, num_patches, patch_size]
+        posterior_log_variance_clipped_3d = extract_patchwise(self.posterior_log_variance_clipped, t_patchwise, x_t) # [B, num_patches, patch_size]
 
-        posterior_mean = patch_reshape(posterior_mean, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
-        posterior_variance = patch_reshape(posterior_variance, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
-        posterior_log_variance_clipped = patch_reshape(posterior_log_variance_clipped, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        posterior_mean = patch_reshape(posterior_mean_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        posterior_variance = patch_reshape(posterior_variance_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        posterior_log_variance_clipped = patch_reshape(posterior_log_variance_clipped_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
 
         return posterior_mean, posterior_variance, posterior_log_variance_clipped # each is [B, num_patches * patch_size]
 
@@ -258,7 +262,7 @@ class PatchGaussianDiffusion1D(nn.Module):
         b, *_, device = *x.shape, x.device
 
         if type(t_patchwise) == int:
-            batched_times = torch.full((b, self.num_patches), t, device = x.device, dtype = torch.long) # [B, num_patches]
+            batched_times = torch.full((b, self.num_patches), t_patchwise, device = x.device, dtype = torch.long) # [B, num_patches]
             noise = torch.randn_like(x) if t_patchwise > 0 else 0.  # no noise if t == 0
         elif t_patchwise.shape != (b, self.num_patches):
             raise ValueError(f'Invalid shape for t_patchwise: {t_patchwise.shape}')
@@ -324,12 +328,13 @@ class PatchGaussianDiffusion1D(nn.Module):
 
     @torch.no_grad()
     def p_sample_loop(self, batch_size, shape, inp, cond, mask, return_traj=False):
+        # PATCHWISE_EDIT_DONE
         device = self.betas.device
 
         if hasattr(self.model, 'randn'):
             img = self.model.randn(batch_size, shape, inp, device)
         else:
-            img = torch.randn((batch_size, *shape), device=device)
+            img = torch.randn((batch_size, *shape), device=device) # [B, num_patches * patch_size]
 
         x_start = None
 
@@ -343,14 +348,14 @@ class PatchGaussianDiffusion1D(nn.Module):
 
         for t in iterator:
             self_cond = x_start if self.self_condition else None
-            batched_times = torch.full((img.shape[0],), t, device = inp.device, dtype = torch.long)
+            batched_times = torch.full((batch_size, self.num_patches), t, device = inp.device, dtype = torch.long) # [B, num_patches]
 
             cond_val = None
             if mask is not None:
-                cond_val = self.q_sample(x_start = inp, t = batched_times, noise = torch.zeros_like(inp))
-                img = img * (1 - mask) + cond_val * mask
+                cond_val = self.q_sample(x_start = inp, t_patchwise = batched_times, noise = torch.zeros_like(inp))
+                img = img * (1 - mask) + cond_val * mask # [B, num_patches * patch_size]
 
-            img, x_start = self.p_sample(inp, img, t, self_cond, scale=False, with_noise=self.baseline)
+            img, x_start = self.p_sample(inp, img, batched_times, self_cond, scale=False, with_noise=self.baseline)
 
             if mask is not None:
                 img = img * (1 - mask) + cond_val * mask
@@ -378,18 +383,21 @@ class PatchGaussianDiffusion1D(nn.Module):
                 sf = 1.0
 
             # This clip threshold needs to be adjust to be larger for generalizations settings
-            max_val = extract(self.sqrt_alphas_cumprod, batched_times, x_start.shape)[0, 0] * sf
+            x_start_3d = patch_reshape(x_start, self.num_patches, self.patch_size, to_dims = 3)
+            max_val = extract_patchwise(self.sqrt_alphas_cumprod, batched_times, x_start_3d)[0, 0, 0] * sf
 
-            img = torch.clamp(img, -max_val, max_val)
+            img = torch.clamp(img, -max_val, max_val) # [B, num_patches * patch_size]
 
             # Correctly scale output
-            img_unscaled = self.predict_start_from_noise(img, batched_times, torch.zeros_like(img))
+            img_unscaled = self.predict_start_from_noise(img, batched_times, torch.zeros_like(img)) # [B, num_patches * patch_size]
             preds.append(img_unscaled)
 
             batched_times_prev = batched_times - 1
 
             if t != 0:
-                img = extract(self.sqrt_alphas_cumprod, batched_times_prev, img_unscaled.shape) * img_unscaled
+                img_unscaled_3d = patch_reshape(img_unscaled, self.num_patches, self.patch_size, to_dims = 3)
+                img_3d = extract_patchwise(self.sqrt_alphas_cumprod, batched_times_prev, img_unscaled_3d) * img_unscaled_3d
+                img = patch_reshape(img_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
             # img, _, _ = self.q_posterior(img_unscaled, img, batched_times)
 
         if return_traj:
@@ -397,106 +405,65 @@ class PatchGaussianDiffusion1D(nn.Module):
         else:
             return img
 
-    # @torch.no_grad()
-    # def ddim_sample(self, shape, clip_denoised = True):
-    #     batch, device, total_timesteps, sampling_timesteps, eta, objective = shape[0], self.betas.device, self.num_timesteps, self.sampling_timesteps, self.ddim_sampling_eta, self.objective
-
-    #     times = torch.linspace(-1, total_timesteps - 1, steps=sampling_timesteps + 1)   # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
-    #     times = list(reversed(times.int().tolist()))
-    #     time_pairs = list(zip(times[:-1], times[1:])) # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
-
-    #     img = torch.randn(shape, device = device)
-
-    #     x_start = None
-
-    #     for time, time_next in tqdm(time_pairs, desc = 'sampling loop time step'):
-    #         time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
-    #         self_cond = x_start if self.self_condition else None
-    #         pred_noise, x_start, *_ = self.model_predictions(img, time_cond, self_cond, clip_x_start = clip_denoised)
-
-    #         if time_next < 0:
-    #             img = x_start
-    #             continue
-
-    #         alpha = self.alphas_cumprod[time]
-    #         alpha_next = self.alphas_cumprod[time_next]
-
-    #         sigma = eta * ((1 - alpha / alpha_next) * (1 - alpha_next) / (1 - alpha)).sqrt()
-    #         c = (1 - alpha_next - sigma ** 2).sqrt()
-
-    #         noise = torch.randn_like(img)
-
-    #         img = x_start * alpha_next.sqrt() + \
-    #               c * pred_noise + \
-    #               sigma * noise
-
-    #     return img
-
     @torch.no_grad()
     def sample(self, x, label, mask, batch_size = 16, return_traj=False):
+        # PATCHWISE_EDIT_DONE
         # seq_length, channels = self.seq_length, self.channels
-        sample_fn = self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
-        return sample_fn(batch_size, self.out_shape, x, label, mask, return_traj=return_traj)
+        # sample_fn = self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
+        # return sample_fn(batch_size, self.out_shape, x, label, mask, return_traj=return_traj)
+        return self.p_sample_loop(batch_size, self.out_shape, x, label, mask, return_traj=return_traj)
 
-    # @torch.no_grad()
-    # def interpolate(self, x1, x2, t = None, lam = 0.5):
-    #     b, *_, device = *x1.shape, x1.device
-    #     t = default(t, self.num_timesteps - 1)
+    def q_sample(self, x_start, t_patchwise, noise=None):
+        # PATCHWISE_EDIT_DONE
+        if x_start.ndim != 3:
+            x_start = patch_reshape(x_start, self.num_patches, self.patch_size, to_dims = 3)
+        if t_patchwise.ndim != 2:
+            t_patchwise = patch_reshape(t_patchwise, self.num_patches, 1, to_dims = 2)
+        if noise.ndim != 3:
+            noise = patch_reshape(noise, self.num_patches, self.patch_size, to_dims = 3)
 
-    #     assert x1.shape == x2.shape
-
-    #     t_batched = torch.full((b,), t, device = device)
-    #     xt1, xt2 = map(lambda x: self.q_sample(x, t = t_batched), (x1, x2))
-
-    #     img = (1 - lam) * xt1 + lam * xt2
-
-    #     x_start = None
-
-    #     for i in tqdm(reversed(range(0, t)), desc = 'interpolation sample time step', total = t):
-    #         self_cond = x_start if self.self_condition else None
-    #         img, x_start = self.p_sample(img, i, self_cond)
-
-    #     return img
-
-    def q_sample(self, x_start, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
 
-        return (
-            extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
-            extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
+        out_3d = (
+            extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, x_start) * x_start +
+            extract_patchwise(self.sqrt_one_minus_alphas_cumprod, t_patchwise, x_start) * noise
         )
+        out_2d = patch_reshape(out_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        return out_2d
 
-    def p_losses(self, inp, x_start, mask, t, noise = None):
-        b, *c = x_start.shape
-        noise = default(noise, lambda: torch.randn_like(x_start))
+    def p_losses(self, inp, x_start, mask, t_patchwise, noise = None):
+        # PATCHWISE_EDIT_DONE
+        b, *c = x_start.shape # B, num_patches * patch_size
+        noise = default(noise, lambda: torch.randn_like(x_start)) # [B, num_patches * patch_size]
 
         # noise sample
-        x = self.q_sample(x_start = x_start, t = t, noise = noise)
+        x = self.q_sample(x_start = x_start, t_patchwise = t_patchwise, noise = noise) # [B, num_patches * patch_size]
 
         if mask is not None:
             # Mask out inputs
-            x_cond = self.q_sample(x_start = inp, t = t, noise = torch.zeros_like(noise))
+            x_cond = self.q_sample(x_start = inp, t_patchwise = t_patchwise, noise = torch.zeros_like(noise))
             x = x * (1 - mask) + mask * x_cond
 
         # predict and take gradient step
 
-        model_out = self.model(inp, x, t)
+        model_out = self.model(inp, x, t_patchwise) # [B, num_patches * patch_size]
 
         if self.objective == 'pred_noise':
             target = noise
         elif self.objective == 'pred_x0':
             target = x_start
         elif self.objective == 'pred_v':
-            v = self.predict_v(x_start, t, noise)
+            v = self.predict_v(x_start, t_patchwise, noise)
             target = v
         else:
             raise ValueError(f'unknown objective {self.objective}')
 
         if mask is not None:
             # Mask out targets
-            model_out = model_out * (1 - mask) + mask * target
+            model_out = model_out * (1 - mask) + mask * target # [B, num_patches * patch_size]
 
-        loss = F.mse_loss(model_out, target, reduction = 'none')
+
+        loss = F.mse_loss(model_out, target, reduction = 'none') # [B, num_patches * patch_size]
 
         if self.shortest_path:
             mask1 = (x_start > 0)
@@ -506,24 +473,26 @@ class PatchGaussianDiffusion1D(nn.Module):
             # loss = (loss * weight) / weight.sum() * target.numel()
             loss = loss * weight
 
-        loss = reduce(loss, 'b ... -> b (...)', 'mean')
-
-        loss = loss * extract(self.loss_weight, t, loss.shape)
-        loss_mse = loss
+        loss_3d = patch_reshape(loss, self.num_patches, self.patch_size, to_dims = 3)
+        loss_patchwise_3d = loss_3d * extract_patchwise(self.loss_weight, t_patchwise, loss_3d) # [B, num_patches, patch_size], need to reweight by patchwise t
+        loss_patchwise = patch_reshape(loss_patchwise_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
+        
+        loss = reduce(loss_patchwise, 'b ... -> b (...)', 'mean') # [B]
+        loss_mse = loss # [B]
 
         if self.supervise_energy_landscape:
             noise = torch.randn_like(x_start)
-            data_sample = self.q_sample(x_start = x_start, t = t, noise = noise)
+            data_sample = self.q_sample(x_start = x_start, t_patchwise = t_patchwise, noise = noise)
 
             if mask is not None:
-                data_cond = self.q_sample(x_start = x_start, t = t, noise = torch.zeros_like(noise))
+                data_cond = self.q_sample(x_start = x_start, t_patchwise = t_patchwise, noise = torch.zeros_like(noise))
                 data_sample = data_sample * (1 - mask) + mask * data_cond
 
             # Add a noise contrastive estimation term with samples drawn from the data distribution
             #noise = torch.randn_like(x_start)
 
             # Optimize a sample using gradient descent on energy landscape
-            xmin_noise = self.q_sample(x_start = x_start, t = t, noise = 3.0 * noise)
+            xmin_noise = self.q_sample(x_start = x_start, t_patchwise = t_patchwise, noise = 3.0 * noise)
 
             if mask is not None:
                 xmin_noise = xmin_noise * (1 - mask) + mask * data_cond
@@ -573,12 +542,15 @@ class PatchGaussianDiffusion1D(nn.Module):
                 loss_scale = 0.5
             else:
 
-                xmin_noise = self.opt_step(inp, xmin_noise, t, mask, data_cond, step=2, sf=1.0)
-                xmin = extract(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start
+                xmin_noise = self.opt_step(inp, xmin_noise, t_patchwise, mask, data_cond, step=2, sf=1.0)
+                x_start_3d = patch_reshape(x_start, self.num_patches, self.patch_size, to_dims = 3)
+                xmin_3d = extract_patchwise(self.sqrt_alphas_cumprod, t_patchwise, x_start_3d) * x_start_3d
+                xmin = patch_reshape(xmin_3d, self.num_patches, self.patch_size, to_dims = 2)
+
                 loss_opt = torch.pow(xmin_noise - xmin, 2).mean()
 
                 xmin_noise = xmin_noise.detach()
-                xmin_noise_rescale = self.predict_start_from_noise(xmin_noise, t, torch.zeros_like(xmin_noise))
+                xmin_noise_rescale = self.predict_start_from_noise(xmin_noise, t_patchwise, torch.zeros_like(xmin_noise))
                 xmin_noise_rescale = torch.clamp(xmin_noise_rescale, -2, 2)
 
                 # loss_opt = torch.ones(1)
@@ -593,28 +565,28 @@ class PatchGaussianDiffusion1D(nn.Module):
 
                 loss_scale = 0.5
 
-            xmin_noise = self.q_sample(x_start=xmin_noise_rescale, t=t, noise=noise)
+            xmin_noise = self.q_sample(x_start=xmin_noise_rescale, t_patchwise=t_patchwise, noise=noise)
 
             if mask is not None:
                 xmin_noise = xmin_noise * (1 - mask) + mask * data_cond
 
             # Compute energy of both distributions
-            inp_concat = torch.cat([inp, inp], dim=0)
-            x_concat = torch.cat([data_sample, xmin_noise], dim=0)
+            inp_concat = torch.cat([inp, inp], dim=0) # [2 * B, inp_dim] = [2 * B, num_patches * patch_size]
+            x_concat = torch.cat([data_sample, xmin_noise], dim=0) # [2 * B, num_patches * patch_size]
             # x_concat = torch.cat([xmin, xmin_noise_min], dim=0)
-            t_concat = torch.cat([t, t], dim=0)
-            energy = self.model(inp_concat, x_concat, t_concat, return_energy=True)
+            t_concat = torch.cat([t_patchwise, t_patchwise], dim=0) # [2 * B, num_patches]
+            energy = self.model(inp_concat, x_concat, t_concat, return_energy=True) # [2 * B, 1]
 
             # Compute noise contrastive energy loss
-            energy_real, energy_fake = torch.chunk(energy, 2, 0)
-            energy_stack = torch.cat([energy_real, energy_fake], dim=-1)
-            target = torch.zeros(energy_real.size(0)).to(energy_stack.device)
-            loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None]
+            energy_real, energy_fake = torch.chunk(energy, 2, 0) # each is [B, 1]
+            energy_stack = torch.cat([energy_real, energy_fake], dim=-1) # [B, 2]
+            target = torch.zeros(energy_real.size(0)).to(energy_stack.device) # [B]
+            loss_energy = F.cross_entropy(-1 * energy_stack, target.long(), reduction='none')[:, None] # [B, 1]
 
             # loss_energy = energy_real.mean() - energy_fake.mean()# loss_energy.mean()
 
-            loss = loss_mse + loss_scale * loss_energy # + 0.001 * loss_opt
-            return loss.mean(), (loss_mse.mean(), loss_energy.mean(), loss_opt.mean())
+            loss = loss_mse + loss_scale * loss_energy # + 0.001 * loss_opt #[B, 1]
+            return loss.mean(), (loss_mse.mean(), loss_energy.mean(), loss_opt.mean()) # constant, mean over batch
         else:
             loss = loss_mse
             return loss.mean(), (loss_mse.mean(), -1, -1)
@@ -622,6 +594,8 @@ class PatchGaussianDiffusion1D(nn.Module):
     def forward(self, inp, target, mask, *args, **kwargs):
         # PATCHWISE_EDIT_DONE
         b, *c = target.shape
+        print(f"inp shape: {inp.shape}")
+        print(f"target shape: {target.shape}")
         device = target.device
         if len(c) == 1:
             self.out_dim = c[0]
