@@ -9,6 +9,7 @@ from ema_pytorch import EMA
 from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 
+import numpy as np
 from tqdm.auto import tqdm
 
 import os.path as osp
@@ -300,7 +301,7 @@ class Trainer1D(object):
                     rows = [('mse_error', mse_error)]
                     print(tabulate(rows))
 
-                    self.results_file.write(f'{self.step},{milestone},training_mse,{mse_error}\n') # LOGGING ADDITION: train mse
+                    self.results_file.write(f'{self.step},{milestone},Train,{mse_error}\n') # LOGGING ADDITION: train mse
                     self.results_file.flush()
                 elif self.metric == 'bce':
                     assert len(all_samples_list) == 1
@@ -407,8 +408,7 @@ class Trainer1D(object):
                     # all_samples = torch.cat(all_samples_list, dim = 0)
                     mse_error = (samples - label).pow(2).mean()
                     meters['mse'].update(mse_error, n=inp.size(0))
-                    self.results_file.write(f'{self.step},{milestone},{prefix},{mse_error}\n') # LOGGING ADDITION: validation mse
-                    self.results_file.flush()
+                    
                     if i > 20:
                         break
                 elif self.metric == 'bce':
@@ -421,6 +421,9 @@ class Trainer1D(object):
                     raise NotImplementedError()
 
             rows = [[k, v.avg] for k, v in meters.items()]
+            avg_meter_val = rows[0][1]
+            self.results_file.write(f'{self.step},{milestone},{prefix},{avg_meter_val}\n') # LOGGING ADDITION: validation mse
+            self.results_file.flush()
             print(f'Validation Result @ Iteration {self.step}; Milestone = {milestone} (ID: {prefix})')
             print(tabulate(rows))
 

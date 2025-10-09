@@ -70,8 +70,8 @@ if __name__ == "__main__":
 
     validation_dataset = None
     extra_validation_datasets = dict()
-    extra_validation_every_mul = 10
-    save_and_sample_every = 500
+    extra_validation_every_mul = 10000
+    save_and_sample_every = 1
     validation_batch_size = 256
 
     if FLAGS.dataset == "addition":
@@ -80,7 +80,7 @@ if __name__ == "__main__":
         metric = 'mse'
     elif FLAGS.dataset == "inverse":
         dataset = Inverse("train", FLAGS.rank, FLAGS.ood)
-        validation_dataset = dataset
+        validation_dataset = Inverse("val", FLAGS.rank, FLAGS.ood)
         metric = 'mse'
     elif FLAGS.dataset == "lowrank":
         dataset = LowRankDataset("train", FLAGS.rank, FLAGS.ood)
@@ -332,6 +332,9 @@ if __name__ == "__main__":
         autoencode_model.load_state_dict(model_ckpt)
     else:
         autoencode_model = None
+
+        # validation_dataset = None
+        extra_validation_datasets = None
 
     trainer = trainer_fn(
         diffusion_fn,
