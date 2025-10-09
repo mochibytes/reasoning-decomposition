@@ -1,13 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=inv-mlp-patch
-#SBATCH --partition=PARTITION
-#SBATCH --account=ACCOUNT
+#SBATCH --job-name=baseline_inverse_r20_patch10
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=16G
-#SBATCH --time=12:00:00
-#SBATCH --output=logs/inv-mlp-patch_%j.out
-#SBATCH --error=logs/inv-mlp-patch_%j.err
+#SBATCH --mem=32G
+#SBATCH --time=48:00:00
+#SBATCH --output=logs/baseline_inverse_r20_patch10_%j.out
+#SBATCH --error=logs/baseline_inverse_r20_patch10_%j.err
 
 set -euo pipefail
 
