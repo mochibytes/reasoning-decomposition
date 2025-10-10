@@ -12,6 +12,7 @@ from diffusion_lib.denoising_diffusion_trainers import Trainer1D
 from models import EBM, DiffusionWrapper
 from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
+from models import SudokuPatchEBM # PATCHWISE_ADDITION
 from models import GraphEBM, GraphReverse, GNNConvEBM, GNNDiffusionWrapper, GNNConvDiffusionWrapper, GNNConv1DEBMV2, GNNConv1DV2DiffusionWrapper, GNNConv1DReverse
 from dataset import Addition, LowRankDataset, Inverse
 from reasoning_dataset import FamilyTreeDataset, GraphConnectivityDataset, FamilyDatasetWrapper, GraphDatasetWrapper
@@ -44,7 +45,7 @@ parser = argparse.ArgumentParser(description='Train Diffusion Reasoning Model')
 
 parser.add_argument('--dataset', default='inverse', type=str, help='dataset to evaluate')
 parser.add_argument('--inspect-dataset', action='store_true', help='run an IPython embed interface after loading the dataset')
-parser.add_argument('--model', default='mlp', type=str, choices=['mlp', 'mlp-reverse', 'mlp-patch','sudoku', 'sudoku-latent', 'sudoku-transformer', 'sudoku-reverse', 'gnn', 'gnn-reverse', 'gnn-conv', 'gnn-conv-1d', 'gnn-conv-1d-v2', 'gnn-conv-1d-v2-reverse']) # PATCHWISE_ADDITION
+parser.add_argument('--model', default='mlp', type=str, choices=['mlp', 'mlp-reverse', 'mlp-patch','sudoku', 'sudoku-patch','sudoku-latent', 'sudoku-transformer', 'sudoku-reverse', 'gnn', 'gnn-reverse', 'gnn-conv', 'gnn-conv-1d', 'gnn-conv-1d-v2', 'gnn-conv-1d-v2-reverse']) # PATCHWISE_ADDITION
 parser.add_argument('--load-milestone', type=str, default=None, help='load a model from a milestone')
 parser.add_argument('--batch_size', default=2048, type=int, help='size of batch of input to use')
 parser.add_argument('--diffusion_steps', default=10, type=int, help='number of diffusion time steps (default: 10)')
@@ -225,6 +226,13 @@ if __name__ == "__main__":
             out_dim = dataset.out_dim,
         )
         model = DiffusionWrapper(model)
+    elif FLAGS.model == 'sudoku-patch': # PATCHWISE_ADDITION
+        model = SudokuPatchEBM(
+            inp_dim = dataset.inp_dim,
+            out_dim = dataset.out_dim,
+            patch_size = FLAGS.patch_size
+        )
+        model = PatchDiffusionWrapper(model)
     elif FLAGS.model == 'sudoku-latent':
         model = SudokuLatentEBM(
             inp_dim = dataset.inp_dim,
