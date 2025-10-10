@@ -71,7 +71,7 @@ if __name__ == "__main__":
     validation_dataset = None
     extra_validation_datasets = dict()
     extra_validation_every_mul = 10000
-    save_and_sample_every = 50
+    save_and_sample_every = 100
     validation_batch_size = 256
 
     if FLAGS.dataset == "addition":
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         train_batch_size = FLAGS.batch_size,
         validation_batch_size = validation_batch_size,
         train_lr = 1e-4,
-        train_num_steps = 10000, # 1300000,         # total training steps
+        train_num_steps = 50000, # 1300000,         # total training steps
         gradient_accumulate_every = 1,    # gradient accumulation steps
         ema_decay = 0.995,                # exponential moving average decay
         data_workers = FLAGS.data_workers,
