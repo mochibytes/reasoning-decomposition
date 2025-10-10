@@ -287,7 +287,10 @@ if __name__ == "__main__":
         kwargs['energy_weight_gt'] = FLAGS.energy_weight_gt
     
     if FLAGS.dataset == 'inverse':
-        results_filename = f'./results/dataset_{FLAGS.dataset}_rank_{FLAGS.rank}_model_{FLAGS.model}_diffsteps_{FLAGS.diffusion_steps}_start_time_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+        if FLAGS.patch_size is None:
+            results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+        else:
+            results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_patchsize-{FLAGS.patch_size}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
 
     if FLAGS.model not in ['mlp-patch']: # PATCHWISE_ADDITION
         diffusion_fn = GaussianDiffusion1D(
