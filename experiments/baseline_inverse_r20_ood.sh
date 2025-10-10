@@ -20,5 +20,5 @@ srun python3 train.py \
   --rank 20 \
   --batch_size 256 \
   --data-workers 8 \
-  --ood True \
+  --ood \
   --results_filename results/baseline_inverse_r20_ood.csv

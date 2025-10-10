@@ -22,5 +22,5 @@ srun python3 train.py \
   --data-workers 8 \
   --patch_baseline False \
   --patch_size 5 \
-  --ood True \
+  --ood \
   --results_filename results/patched-noise_inverse_r20_patch05_ood.csv
