@@ -64,6 +64,9 @@ parser.add_argument('--patch_size', type=int, default=None, help='patch size to 
 parser.add_argument('--energy_weight_gt', default = None, type=float, help='weighting to force ground truth samples ot have energy 0; between 0 and 1')
 parser.add_argument('--patch_baseline', default=False, type=str2bool, help='True only when t_patches should simulate non-patchwise t')
 
+parser.add_argument('--save_and_sample_every', type=int, default=100, help='how often to save and sample')
+parser.add_argument('--train_num_steps', type=int, default=50000, help='total number of training steps')
+parser.add_argument('--results_filename', type=str, default=None, help='filename to save results to')
 
 if __name__ == "__main__":
     FLAGS = parser.parse_args()
@@ -71,7 +74,7 @@ if __name__ == "__main__":
     validation_dataset = None
     extra_validation_datasets = dict()
     extra_validation_every_mul = 10000
-    save_and_sample_every = 100
+    save_and_sample_every = FLAGS.save_and_sample_every
     validation_batch_size = 256
 
     if FLAGS.dataset == "addition":
@@ -286,13 +289,16 @@ if __name__ == "__main__":
     if FLAGS.energy_weight_gt is not None: # PATCHWISE_ADDITION
         kwargs['energy_weight_gt'] = FLAGS.energy_weight_gt
     
-    if FLAGS.dataset == 'inverse':
-        if FLAGS.patch_size is None:
-            results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
-        else:
-            results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_patchsize-{FLAGS.patch_size}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
-        if FLAGS.patch_baseline:
-            results_filename = results_filename + '_patchbaseline'
+    if FLAGS.results_filename is None:
+        if FLAGS.dataset == 'inverse':
+            if FLAGS.patch_size is None:
+                results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+            else:
+                results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_patchsize-{FLAGS.patch_size}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+            if FLAGS.patch_baseline:
+                results_filename = results_filename + '_patchbaseline'
+    else:
+        results_filename = FLAGS.results_filename
 
     if FLAGS.model not in ['mlp-patch']: # PATCHWISE_ADDITION
         diffusion_fn = GaussianDiffusion1D(
@@ -347,7 +353,7 @@ if __name__ == "__main__":
         train_batch_size = FLAGS.batch_size,
         validation_batch_size = validation_batch_size,
         train_lr = 1e-4,
-        train_num_steps = 50000, # 1300000,         # total training steps
+        train_num_steps = FLAGS.train_num_steps, # 1300000,         # total training steps
         gradient_accumulate_every = 1,    # gradient accumulation steps
         ema_decay = 0.995,                # exponential moving average decay
         data_workers = FLAGS.data_workers,
