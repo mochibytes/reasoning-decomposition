@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=baseline_inverse_r20_patch40
+#SBATCH --job-name=firststeps
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
@@ -23,7 +23,7 @@ srun python3 train.py \
   --patch_baseline True \
   --patch_size 40 \
   --save_and_sample_every 1 \
-  --train_num_steps 100
+  --train_num_steps 100 \
   --results_filename results/first_steps_investigations_baseline_patch-size-40.csv
 
 python3 train.py \
@@ -35,7 +35,7 @@ python3 train.py \
   --patch_baseline True \
   --patch_size 20 \
   --save_and_sample_every 1 \
-  --train_num_steps 100
+  --train_num_steps 100 \
   --results_filename results/first_steps_investigations_baseline_patch-size-20.csv
 
 python3 train.py \
@@ -47,7 +47,7 @@ python3 train.py \
   --patch_baseline True \
   --patch_size 10 \
   --save_and_sample_every 1 \
-  --train_num_steps 100
+  --train_num_steps 100 \
   --results_filename results/first_steps_investigations_baseline_patch-size-10.csv
 
 
@@ -60,7 +60,7 @@ srun python3 train.py \
   --patch_baseline False \
   --patch_size 40 \
   --save_and_sample_every 1 \
-  --train_num_steps 100
+  --train_num_steps 100 \
   --results_filename results/first_steps_investigations_patch-training_patch-size-40.csv
 
 python3 train.py \
@@ -72,7 +72,7 @@ python3 train.py \
   --patch_baseline False \
   --patch_size 20 \
   --save_and_sample_every 1 \
-  --train_num_steps 100
+  --train_num_steps 100 \
   --results_filename results/first_steps_investigations_patch-training_patch-size-20.csv
 
 python3 train.py \
@@ -84,5 +84,5 @@ python3 train.py \
   --patch_baseline False \
   --patch_size 10 \
   --save_and_sample_every 1 \
-  --train_num_steps 100
+  --train_num_steps 100 \
   --results_filename results/first_steps_investigations_patch-training_patch-size-10.csv
