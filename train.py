@@ -71,7 +71,7 @@ if __name__ == "__main__":
     validation_dataset = None
     extra_validation_datasets = dict()
     extra_validation_every_mul = 10000
-    save_and_sample_every = 1
+    save_and_sample_every = 50
     validation_batch_size = 256
 
     if FLAGS.dataset == "addition":
