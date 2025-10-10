@@ -291,6 +291,8 @@ if __name__ == "__main__":
             results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
         else:
             results_filename = f'./results/{FLAGS.dataset}_rank-{FLAGS.rank}_{FLAGS.model}_patchsize-{FLAGS.patch_size}_diffsteps-{FLAGS.diffusion_steps}_starttime_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+        if FLAGS.patch_baseline:
+            results_filename = results_filename + '_patchbaseline'
 
     if FLAGS.model not in ['mlp-patch']: # PATCHWISE_ADDITION
         diffusion_fn = GaussianDiffusion1D(
