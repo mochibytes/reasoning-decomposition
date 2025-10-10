@@ -345,7 +345,7 @@ if __name__ == "__main__":
         train_batch_size = FLAGS.batch_size,
         validation_batch_size = validation_batch_size,
         train_lr = 1e-4,
-        train_num_steps = 50000, # 1300000,         # total training steps
+        train_num_steps = 10000, # 1300000,         # total training steps
         gradient_accumulate_every = 1,    # gradient accumulation steps
         ema_decay = 0.995,                # exponential moving average decay
         data_workers = FLAGS.data_workers,
