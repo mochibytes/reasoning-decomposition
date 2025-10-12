@@ -417,6 +417,117 @@ class SudokuLatentEBM(nn.Module):
         return energy
 
 
+
+class SudokuPatchEBM(nn.Module):
+    def __init__(self, inp_dim, out_dim, patch_size):
+        super().__init__()
+
+        assert inp_dim == out_dim == 729
+        self.inp_dim = inp_dim
+        self.out_dim = out_dim
+        self.patch_size = patch_size
+        self.num_patches = out_dim // patch_size
+        self.cells_per_patch = patch_size // 9
+        assert out_dim % patch_size == 0, 'patch_size for sudoku must be a divisor of 729'
+        
+        h = 384
+        fourier_dim, time_dim, pos_dim, context_dim = 128, 64, 64, 256
+
+        sinu_pos_emb = SinusoidalPosEmb(fourier_dim)
+        self.time_mlp = nn.Sequential(
+            sinu_pos_emb,
+            nn.Linear(fourier_dim, time_dim),
+            nn.GELU(),
+            nn.Linear(time_dim, time_dim)
+        )
+        
+        # PATCHWISE_ADDITION: context encoder for processing entire sudoku grid input
+        self.context_encoder = nn.Sequential(
+            nn.Linear(inp_dim, context_dim),
+            nn.GELU(),
+            nn.Linear(context_dim, context_dim),
+            nn.GELU(),
+            nn.Linear(context_dim, context_dim)
+        )
+
+        # PATCHWISE_ADDITION: position embeddings (one per patch), start with random initialization
+        # this will be learned via backpropagation during training
+        self.pos_embeddings = nn.Parameter(torch.zeros(self.num_patches, pos_dim))
+        nn.init.trunc_normal_(self.pos_embeddings, std=0.02)
+        
+        # CHANGE START HERE
+        self.conv1 = nn.Conv2d(9 + context_dim + pos_dim + time_dim, h, 3, padding=1)
+
+        self.res1a = ResBlock(downsample=False, rescale=False, filters=h, time_dim=time_dim)
+        self.res1b = ResBlock(downsample=False, rescale=False, filters=h, time_dim=time_dim)
+
+        self.attn1 = Attention(h, dim_head=128)
+
+        self.res2a = ResBlock(downsample=False, rescale=False, filters=h, time_dim=time_dim)
+        self.res2b = ResBlock(downsample=False, rescale=False, filters=h, time_dim=time_dim)
+
+        self.attn2 = Attention(h, dim_head=128)
+
+        self.res3a = ResBlock(downsample=False, rescale=False, filters=h, time_dim=time_dim)
+        self.res3b = ResBlock(downsample=False, rescale=False, filters=h, time_dim=time_dim)
+
+        self.attn3 = Attention(h, dim_head=128)
+
+        self.conv5 = nn.Conv2d(h, 9, 1, padding=0)
+        # CHANGE END HERE
+
+
+    def forward(self, x, t_patchwise):
+        batch_size = x.shape[0]
+
+        t_flat = t_patchwise.reshape(batch_size * self.num_patches) # PATCHWISE_ADDITION: flatten patchwise time embeddings
+        t_emb = self.time_mlp(t_flat) # [B * num_patches, time_dim]
+
+        # Position embeddings: one per patch
+        pos_emb = self.pos_embeddings.unsqueeze(0).expand(batch_size, -1, -1)  # [B, num_patches, pos_dim]
+        pos_emb_flat = pos_emb.reshape(batch_size * self.num_patches, -1) # [B * num_patches, pos_dim]
+
+        inp, out = torch.chunk(x, 2, dim=-1)
+
+        # x = einops.rearrange(inp, 'b (h w c) -> b c h w', h=9, w=9, c=9) # [B, 9, 9, 9]
+        global_context = self.context_encoder(inp) # [B, context_dim]
+        global_context_expanded = global_context.unsqueeze(1).expand(-1, self.num_patches, -1)  # [B, num_patches, context_dim]
+        global_context_flat = global_context_expanded.reshape(batch_size * self.num_patches, -1)  # [B*num_patches, context_dim]
+        y_flat = out.reshape(batch_size * self.num_patches, self.patch_size)  # [B*num_patches, patch_size]
+        y_patches = einops.rearrange(y_flat, 'b (w c) -> b c 1 w', w=self.cells_per_patch, c=9)  # [B*num_patches, 9, 1, cells_per_patch]
+
+        # Broadcast to spatial dimensions: [B*num_patches, context_dim, 1, 9]
+        global_context_spatial = global_context_flat.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, 1, self.cells_per_patch)
+
+        # Position (patchwise): [B*num_patches, pos_dim, 1, 9]
+        pos_emb_spatial = pos_emb_flat.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, 1, self.cells_per_patch)
+
+        # Time (patchwise): [B*num_patches, time_dim, 1, 9]
+        t_emb_spatial = t_emb.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, 1, self.cells_per_patch)
+
+        # Concatenate along channel dimension
+        x_input = torch.cat([y_patches, global_context_spatial, pos_emb_spatial, t_emb_spatial], dim=1)
+
+
+        h = swish(self.conv1(x_input))
+
+        h = self.res1a(h, t_emb)
+        h = self.res1b(h, t_emb)
+        # h = self.attn1(h)
+        h = self.res2a(h, t_emb)
+        h = self.res2b(h, t_emb)
+        # h = self.attn2(h)
+        h = self.res3a(h, t_emb)
+        h = self.res3b(h, t_emb)
+        # h = self.attn3(h)
+
+        output = self.conv5(h)
+        # energy = (output - y).pow(2).sum(dim=1).sum(dim=1).sum(dim=1)[:, None]
+        # return energy
+
+        output = output.pow(2).sum(dim=[1, 2, 3])[:, None]
+        return output
+
 class SudokuEBM(nn.Module):
     def __init__(self, inp_dim, out_dim):
         super().__init__()
@@ -460,9 +571,9 @@ class SudokuEBM(nn.Module):
 
         inp, out = torch.chunk(x, 2, dim=-1)
 
-        x = einops.rearrange(inp, 'b (h w c) -> b c h w', h=9, w=9)
-        y = einops.rearrange(out, 'b (h w c) -> b c h w', h=9, w=9)
-        x = torch.cat((x, y), dim=1)
+        x = einops.rearrange(inp, 'b (h w c) -> b c h w', h=9, w=9) #[B, 9, 9, 9]
+        y = einops.rearrange(out, 'b (h w c) -> b c h w', h=9, w=9) #[B, 9, 9, 9]
+        x = torch.cat((x, y), dim=1) #[B, 18, 9, 9]
 
         h = swish(self.conv1(x))
 
