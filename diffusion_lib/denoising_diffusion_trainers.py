@@ -72,6 +72,8 @@ class Trainer1D(object):
 
         if not file_has_content:
             header = "iteration,milestone,datasplit,mse\n"  # Adjust columns as needed
+            if self.metric == 'sudoku':
+                header = "iteration,milestone,datasplit,accuracy,consistency,board_accuracy\n"
             self.results_file.write(header)
             self.results_file.flush()
         # LOGGING ADDITION END
@@ -421,9 +423,16 @@ class Trainer1D(object):
                     raise NotImplementedError()
 
             rows = [[k, v.avg] for k, v in meters.items()]
-            avg_meter_val = rows[0][1]
-            self.results_file.write(f'{self.step},{milestone},{prefix},{avg_meter_val}\n') # LOGGING ADDITION: validation mse
-            self.results_file.flush()
+            if self.metric == 'mse':
+                avg_meter_val = rows[0][1]
+                self.results_file.write(f'{self.step},{milestone},{prefix},{avg_meter_val}\n') # LOGGING ADDITION: validation mse
+                self.results_file.flush()
+            elif self.metric == 'sudoku':
+                avg_accuracy = meters['accuracy'].avg
+                avg_consistency = meters['consistency'].avg
+                avg_board_accuracy = meters['board_accuracy'].avg
+                self.results_file.write(f'{self.step},{milestone},{prefix},{avg_accuracy},{avg_consistency},{avg_board_accuracy}\n') # LOGGING ADDITION: validation sudoku metrics
+                self.results_file.flush()
             print(f'Validation Result @ Iteration {self.step}; Milestone = {milestone} (ID: {prefix})')
             print(tabulate(rows))
 
