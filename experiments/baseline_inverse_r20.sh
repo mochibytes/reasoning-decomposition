@@ -19,4 +19,6 @@ srun python3 train.py \
   --model mlp \
   --rank 20 \
   --batch_size 256 \
-  --data-workers 8
+  --data-workers 8 \
+  --train_num_steps 100000 \
+  --results_filename ~/reasoning-decomposition/results/baseline_inverse_r20.csv
