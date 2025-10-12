@@ -65,7 +65,7 @@ parser.add_argument('--patch_size', type=int, default=None, help='patch size to 
 parser.add_argument('--energy_weight_gt', default = None, type=float, help='weighting to force ground truth samples ot have energy 0; between 0 and 1')
 parser.add_argument('--patch_baseline', default=False, type=str2bool, help='True only when t_patches should simulate non-patchwise t')
 
-parser.add_argument('--save_and_sample_every', type=int, default=100, help='how often to save and sample')
+parser.add_argument('--save_and_sample_every', type=int, default=1, help='how often to save and sample')
 parser.add_argument('--train_num_steps', type=int, default=50000, help='total number of training steps')
 parser.add_argument('--results_filename', type=str, default=None, help='filename to save results to')
 
