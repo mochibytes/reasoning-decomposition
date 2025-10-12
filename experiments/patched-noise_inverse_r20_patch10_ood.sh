@@ -23,4 +23,5 @@ srun python3 train.py \
   --patch_baseline False \
   --patch_size 10 \
   --ood \
+  --train_num_steps 150000 \
   --results_filename results/patched-noise_inverse_r20_patch10_ood.csv
