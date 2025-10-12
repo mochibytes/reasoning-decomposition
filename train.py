@@ -308,7 +308,7 @@ if __name__ == "__main__":
     else:
         results_filename = FLAGS.results_filename
 
-    if FLAGS.model not in ['mlp-patch']: # PATCHWISE_ADDITION
+    if FLAGS.model not in ['mlp-patch', 'sudoku-patch']: # PATCHWISE_ADDITION
         diffusion_fn = GaussianDiffusion1D(
             model,
             seq_length = 32,
@@ -322,7 +322,7 @@ if __name__ == "__main__":
         )
         trainer_fn = Trainer1D
 
-    elif FLAGS.model in ['mlp-patch']: # PATCHWISE_ADDITION
+    elif FLAGS.model in ['mlp-patch', 'sudoku-patch']: # PATCHWISE_ADDITION
         diffusion_fn = PatchGaussianDiffusion1D(
             model,
             seq_length = 32,
