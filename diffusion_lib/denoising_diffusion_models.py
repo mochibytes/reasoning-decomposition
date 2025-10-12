@@ -10,11 +10,14 @@ from tqdm.auto import tqdm
 
 from diffusion_lib.denoising_diffusion_utils import * # MODULE_REARRANGEMENT
 from diffusion_lib.denoising_diffusion_eval_metrics import * # MODULE_REARRANGEMENT
+from diffusion_lib.uniform_t import sample_noise_levels
 
 class PatchGaussianDiffusion1D(nn.Module):
     def __init__(
         self,
         model,
+        noising_scheme = 'random',
+        sharpness = 1.0,
         *,
         seq_length,
         timesteps = 1000,
@@ -60,6 +63,8 @@ class PatchGaussianDiffusion1D(nn.Module):
         self.shortest_path = shortest_path
         self.patch_baseline = patch_baseline
         self.energy_weight_gt = energy_weight_gt
+        self.noising_scheme = noising_scheme
+        self.sharpness = sharpness
 
         assert objective in {'pred_noise', 'pred_x0', 'pred_v'}, 'objective must be either pred_noise (predict noise) or pred_x0 (predict image start) or pred_v (predict v [v-parameterization as defined in appendix D of progressive distillation paper, used in imagen-video successfully])'
 
@@ -608,8 +613,12 @@ class PatchGaussianDiffusion1D(nn.Module):
         if self.patch_baseline:
             t_patchwise = torch.randint(0, self.num_timesteps, (b,), device=device) # create tensor of size b
             t_patchwise = t_patchwise.unsqueeze(1).expand(-1, self.num_patches).to(device) # [B, num_patches]
-        else:
+        elif self.noising_scheme == 'random':
             t_patchwise = torch.randint(0, self.num_timesteps, (b, self.num_patches), device=device).long() # [B, num_patches]
+        elif self.noising_scheme == 'uniform-t':
+            t_patchwise = sample_noise_levels(b, self.num_patches, self.sharpness, device=device).long()
+        else:
+            raise ValueError(f'Unknown noising scheme: {self.noising_scheme}')
 
         return self.p_losses(inp, target, mask, t_patchwise, *args, **kwargs)
         
