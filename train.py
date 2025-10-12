@@ -53,7 +53,7 @@ parser.add_argument('--rank', default=20, type=int, help='rank of matrix to use'
 parser.add_argument('--data-workers', type=int, default=8, help='number of workers to use for data loading')
 parser.add_argument('--supervise-energy-landscape', type=str2bool, default=True)
 parser.add_argument('--use-innerloop-opt', type=str2bool, default=True)
-parser.add_argument('--cond_mask', type=str2bool, default=False)
+# parser.add_argument('--cond_mask', type=str2bool, default=False)
 parser.add_argument('--evaluate', action='store_true', default=False)
 parser.add_argument('--latent', action='store_true', default=False)
 parser.add_argument('--ood', action='store_true', default=False)
