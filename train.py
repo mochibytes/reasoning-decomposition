@@ -359,6 +359,7 @@ if __name__ == "__main__":
     trainer = trainer_fn(
         diffusion_fn,
         dataset,
+        model_type = FLAGS.model,
         train_batch_size = FLAGS.batch_size,
         validation_batch_size = validation_batch_size,
         train_lr = 1e-4,

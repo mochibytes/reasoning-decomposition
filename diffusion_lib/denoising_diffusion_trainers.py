@@ -28,6 +28,7 @@ class Trainer1D(object):
         self,
         diffusion_model: GaussianDiffusion1D,
         dataset: Dataset,
+        model_type: str,
         *,
         train_batch_size = 16,
         validation_batch_size = None,
@@ -72,7 +73,7 @@ class Trainer1D(object):
 
         if not file_has_content:
             header = "iteration,milestone,datasplit,mse\n"  # Adjust columns as needed
-            if self.metric == 'sudoku':
+            if self.model_type in ['sudoku', 'sudoku-patch']:
                 header = "iteration,milestone,datasplit,accuracy,consistency,board_accuracy\n"
             self.results_file.write(header)
             self.results_file.flush()
