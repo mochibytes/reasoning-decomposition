@@ -1007,7 +1007,9 @@ class SudokuPatchDiffusionWrapper(nn.Module):
         assert self.out_dim == self.num_patches * self.patch_size
 
     def forward(self, inp, opt_out, t_patchwise, return_energy=False, return_both=False):
-        
+        print(f"DEBUG: inp.shape = {inp.shape}")
+        print(f"DEBUG: opt_out.shape = {opt_out.shape}")
+        print(f"DEBUG: t_patchwise.shape = {t_patchwise.shape}")
         # Concatenate inp and opt_out like SudokuEBM expects
         if inp.ndim != 2:
             inp = inp.reshape(inp.shape[0], self.inp_dim)
@@ -1016,7 +1018,8 @@ class SudokuPatchDiffusionWrapper(nn.Module):
             opt_out = opt_out.reshape(batch_size, self.out_dim)
         if t_patchwise.ndim != 2:
             t_patchwise = t_patchwise.reshape(batch_size, self.num_patches)
-
+        print(f"DEBUG AFTER RESHAPE: t_patchwise.shape = {t_patchwise.shape}")
+        print(f"DEBUG: batch_size = {batch_size}, num_patches = {self.num_patches}")
         opt_out.requires_grad_(True)
         
         # Concatenate inp and opt_out
