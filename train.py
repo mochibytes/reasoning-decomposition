@@ -70,7 +70,7 @@ parser.add_argument('--save_and_sample_every', type=int, default=500, help='how 
 parser.add_argument('--train_num_steps', type=int, default=50000, help='total number of training steps')
 parser.add_argument('--results_filename', type=str, default=None, help='filename to save results to')
 
-parser.add_argument('--noising_scheme', type=str, default='random, uniform-t', choices = ['random','uniform-t'])
+parser.add_argument('--noising_scheme', type=str, default='random', choices = ['random','uniform-t'])
 parser.add_argument('--sharpness', type=float, default=1.0, help='sharpness of uniform-t noising scheme')
 
 if __name__ == "__main__":
