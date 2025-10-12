@@ -35,7 +35,7 @@ class PatchGaussianDiffusion1D(nn.Module):
         connectivity = False,
         shortest_path = False,
         patch_baseline = False,
-        energy_weight_gt = 0.2,
+        energy_weight_gt = None,
     ):
         # PATCHWISE_EDIT_DONE
         super().__init__()
@@ -62,7 +62,8 @@ class PatchGaussianDiffusion1D(nn.Module):
         self.continuous = continuous
         self.shortest_path = shortest_path
         self.patch_baseline = patch_baseline
-        self.energy_weight_gt = energy_weight_gt
+        if energy_weight_gt is not None:
+            self.energy_weight_gt = energy_weight_gt
         self.noising_scheme = noising_scheme
         self.sharpness = sharpness
 
@@ -484,7 +485,13 @@ class PatchGaussianDiffusion1D(nn.Module):
         loss_patchwise = patch_reshape(loss_patchwise_3d, self.num_patches, self.patch_size, to_dims = 2) # [B, num_patches * patch_size]
         
         loss = reduce(loss_patchwise, 'b ... -> b (...)', 'mean') # [B]
-        loss_mse = loss # [B]
+
+        if self.energy_weight_gt is not None:
+            energy_gt = self.model(inp, x_start, t_patchwise, return_energy=True) # [B, 1]
+            loss_energy_gt = (energy_gt **2).mean() * self.energy_weight_gt
+            loss_mse = loss + loss_energy_gt # total loss
+        else:
+            loss_mse = loss # [B]
 
         if self.supervise_energy_landscape:
             noise = torch.randn_like(x_start)
