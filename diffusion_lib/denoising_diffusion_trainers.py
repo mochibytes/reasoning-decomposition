@@ -70,7 +70,7 @@ class Trainer1D(object):
         file_has_content = file_exists and osp.getsize(results_filename) > 0
 
         self.results_file = open(results_filename, 'a') 
-
+        self.model_type = model_type
         if not file_has_content:
             header = "iteration,milestone,datasplit,mse\n"  # Adjust columns as needed
             if self.model_type in ['sudoku', 'sudoku-patch']:
