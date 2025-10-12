@@ -2,8 +2,8 @@
 #SBATCH --job-name=baseline_sudoku
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
-#SBATCH --time=48:00:00
+#SBATCH --mem=64G
+#SBATCH --time=120:00:00
 #SBATCH --output=logs/baseline_sudoku_%j.out
 #SBATCH --error=logs/baseline_sudoku_%j.err
 
