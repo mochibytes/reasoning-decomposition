@@ -988,6 +988,56 @@ class GNNConv1DReverse(nn.Module):
         n = inp.shape[-2]
         return torch.randn((batch_size, 8, n, shape[0]), device=device)
 
+class SudokuPatchDiffusionWrapper(nn.Module):
+    def __init__(self, patch_ebm):
+        super(SudokuPatchDiffusionWrapper, self).__init__()
+        self.ebm = patch_ebm
+        self.inp_dim = patch_ebm.inp_dim
+        self.out_dim = patch_ebm.out_dim
+        
+        # add checks for patch_size and num_patches
+        if not hasattr(patch_ebm, 'patch_size'):
+            raise ValueError('SudokuPatchDiffusionWrapper only works for PatchEBMs, must have patchsize attribute')
+        if not hasattr(patch_ebm, 'num_patches'):
+            raise ValueError('SudokuPatchDiffusionWrapper only works for PatchEBMs, must have num_patches attribute')
+        
+        self.patch_size = patch_ebm.patch_size
+        self.num_patches = patch_ebm.num_patches
+
+        assert self.out_dim == self.num_patches * self.patch_size
+
+    def forward(self, inp, opt_out, t_patchwise, return_energy=False, return_both=False):
+        
+        # Concatenate inp and opt_out like SudokuEBM expects
+        if inp.ndim != 2:
+            inp = inp.reshape(inp.shape[0], self.inp_dim)
+        batch_size = inp.shape[0]
+        if opt_out.ndim != 2:
+            opt_out = opt_out.reshape(batch_size, self.out_dim)
+        if t_patchwise.ndim != 2:
+            t_patchwise = t_patchwise.reshape(batch_size, self.num_patches)
+
+        opt_out.requires_grad_(True)
+        
+        # Concatenate inp and opt_out
+        x_concat = torch.cat([inp, opt_out], dim=-1)
+        
+        energy = self.ebm(x_concat, t_patchwise)
+
+        if return_energy:
+            return energy # [B, 1]
+
+        opt_grad = torch.autograd.grad([energy.sum()], [opt_out], create_graph=True)[0]
+
+        # reshape opt_grad to [B, out_dim = num_patches * patch_size]
+        opt_grad = opt_grad.reshape(batch_size, self.out_dim)
+
+        if return_both:
+            return energy, opt_grad # [B, 1] and [B, num_patches * patch_size]
+        else:
+            return opt_grad # [B, num_patches * patch_size]
+
+
 class PatchDiffusionWrapper(nn.Module):
     def __init__(self, patch_ebm):
         super(PatchDiffusionWrapper, self).__init__()

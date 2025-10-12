@@ -12,7 +12,7 @@ from diffusion_lib.denoising_diffusion_trainers import Trainer1D
 from models import EBM, DiffusionWrapper
 from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
-from models import SudokuPatchEBM # PATCHWISE_ADDITION
+from models import SudokuPatchEBM, SudokuPatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import GraphEBM, GraphReverse, GNNConvEBM, GNNDiffusionWrapper, GNNConvDiffusionWrapper, GNNConv1DEBMV2, GNNConv1DV2DiffusionWrapper, GNNConv1DReverse
 from dataset import Addition, LowRankDataset, Inverse
 from reasoning_dataset import FamilyTreeDataset, GraphConnectivityDataset, FamilyDatasetWrapper, GraphDatasetWrapper
@@ -232,7 +232,7 @@ if __name__ == "__main__":
             out_dim = dataset.out_dim,
             patch_size = FLAGS.patch_size
         )
-        model = PatchDiffusionWrapper(model)
+        model = SudokuPatchDiffusionWrapper(model)
     elif FLAGS.model == 'sudoku-latent':
         model = SudokuLatentEBM(
             inp_dim = dataset.inp_dim,
