@@ -58,6 +58,7 @@ parser.add_argument('--evaluate', action='store_true', default=False)
 parser.add_argument('--latent', action='store_true', default=False)
 parser.add_argument('--ood', action='store_true', default=False)
 parser.add_argument('--baseline', action='store_true', default=False)
+parser.add_argument('--cond_mask', type=str2bool, default=True)
 
 # PATCHWISE_ADDITION
 parser.add_argument('--patch_size', type=int, default=None, help='patch size to use for PatchEBM; must divide original input dimension') # PATCHWISE_ADDITION
