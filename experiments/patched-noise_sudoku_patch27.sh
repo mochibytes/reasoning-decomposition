@@ -24,4 +24,4 @@ python3 ~/reasoning-decomposition/train.py \
   --use-innerloop-opt True \
   --results_filename ~/reasoning-decomposition/results/sudoku_patched-noise_patch27.csv \
   --save_and_sample_every 500 \
-  --train_num_steps 50000
+  --train_num_steps 80000

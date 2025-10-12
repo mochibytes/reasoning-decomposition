@@ -21,4 +21,5 @@ srun python3 train.py \
   --batch_size 256 \
   --data-workers 8 \
   --patch_baseline False \
-  --patch_size 5
+  --patch_size 5 \
+  --train_num_steps 100000 \
