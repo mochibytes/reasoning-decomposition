@@ -525,7 +525,10 @@ class SudokuPatchEBM(nn.Module):
         # energy = (output - y).pow(2).sum(dim=1).sum(dim=1).sum(dim=1)[:, None]
         # return energy
 
-        output = output.pow(2).sum(dim=[1, 2, 3])[:, None]
+
+        output = output.pow(2).sum(dim=[1, 2, 3])  # [B * num_patches]
+        output = output.reshape(batch_size, self.num_patches)  # [B, num_patches]
+        output = output.sum(dim=1, keepdim=True)  # [B, 1]
         return output
 
 class SudokuEBM(nn.Module):
