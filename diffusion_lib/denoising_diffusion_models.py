@@ -62,8 +62,8 @@ class PatchGaussianDiffusion1D(nn.Module):
         self.continuous = continuous
         self.shortest_path = shortest_path
         self.patch_baseline = patch_baseline
-        if energy_weight_gt is not None:
-            self.energy_weight_gt = energy_weight_gt
+        
+        self.energy_weight_gt = energy_weight_gt
         self.noising_scheme = noising_scheme
         self.sharpness = sharpness
 

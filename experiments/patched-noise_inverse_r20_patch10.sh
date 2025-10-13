@@ -2,7 +2,7 @@
 #SBATCH --job-name=patched-noise_inverse_r20_patch10
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 #SBATCH --time=48:00:00
 #SBATCH --output=logs/patched-noise_inverse_r20_patch10_%j.out
 #SBATCH --error=logs/patched-noise_inverse_r20_patch10_%j.err
@@ -23,3 +23,4 @@ srun python3 train.py \
   --patch_baseline False \
   --patch_size 10 \
   --train_num_steps 100000 \
+  --results_filename ~/reasoning-decomposition/results/simple-patched_inverse_r20_patch10_100000-steps.csv

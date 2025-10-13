@@ -15,7 +15,7 @@ source ~/ired_env/bin/activate
 cd ~/reasoning-decomposition
 
 # Sweep over different sharpness values
-for energy_gt in 4.0 2.0
+for energy_gt in 1.0 0.8
 do
   echo "Running with energy_gt=${energy_gt}"
   srun python3 train.py \
