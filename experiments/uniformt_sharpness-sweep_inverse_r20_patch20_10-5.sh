@@ -29,6 +29,6 @@ do
     --patch_size 20 \
     --noising_scheme uniform-t \
     --sharpness ${sharpness} \
-    --train_num_steps 100000 \
+    --train_num_steps 50000 \
     --results_filename ~/reasoning-decomposition/results/uniform_t/sharpness_test_inverse_r20_patch20_sharp${sharpness}.csv
 done
