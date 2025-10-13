@@ -391,3 +391,37 @@ if __name__ == "__main__":
 
     trainer.train()
 
+
+    print("\n" + "="*80)
+    print("Position Embeddings Analysis")
+    print("="*80)
+    
+    # Access the model through the trainer
+    model = trainer.model
+    if hasattr(trainer, 'ema'):
+        model = trainer.ema.ema_model  # Use EMA model if available
+    
+    # Get the actual EBM (unwrap from diffusion wrapper and accelerator)
+    unwrapped_model = trainer.accelerator.unwrap_model(model)
+    ebm_model = unwrapped_model.model.ebm  # model -> diffusion -> ebm
+    
+    if hasattr(ebm_model, 'pos_embeddings'):
+        pos_emb = ebm_model.pos_embeddings.data
+        print(f"Shape: {pos_emb.shape}")  # Should be [num_patches, pos_dim]
+        print(f"\nPosition embeddings:\n{pos_emb}")
+        
+        # Compute similarity between patches
+        pos_emb_norm = pos_emb / pos_emb.norm(dim=1, keepdim=True)
+        similarity = pos_emb_norm @ pos_emb_norm.T
+        print(f"\nCosine similarity between position embeddings:")
+        print(similarity)
+        
+        # Check if they're too similar (bad sign)
+        off_diag_sim = similarity[~torch.eye(similarity.shape[0], dtype=bool)]
+        print(f"\nMean off-diagonal similarity: {off_diag_sim.mean():.4f}")
+        print(f"Std of off-diagonal similarity: {off_diag_sim.std():.4f}")
+        
+        if off_diag_sim.mean() > 0.9:
+            print("⚠️  WARNING: Position embeddings are very similar - model may not be learning patch-specific behavior!")
+    else:
+        print("Model doesn't have position embeddings")
