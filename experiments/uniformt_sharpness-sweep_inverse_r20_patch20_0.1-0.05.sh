@@ -15,7 +15,7 @@ source ~/ired_env/bin/activate
 cd ~/reasoning-decomposition
 
 # Sweep over different sharpness values
-for sharpness in 1.0 0.5 0.01
+for sharpness in 0.1 0.05 0.01
 do
   echo "Running with sharpness=${sharpness}"
   srun python3 train.py \
