@@ -623,7 +623,8 @@ class PatchGaussianDiffusion1D(nn.Module):
         elif self.noising_scheme == 'random':
             t_patchwise = torch.randint(0, self.num_timesteps, (b, self.num_patches), device=device).long() # [B, num_patches]
         elif self.noising_scheme == 'uniform-t':
-            t_patchwise = sample_noise_levels(b, self.num_patches, self.sharpness, device=device).long()
+            t_normalized = sample_noise_levels(b, self.num_patches, self.sharpness, device=device)
+            t_patchwise = (t_normalized * self.num_timesteps).long() 
         else:
             raise ValueError(f'Unknown noising scheme: {self.noising_scheme}')
 
