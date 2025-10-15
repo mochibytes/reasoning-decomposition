@@ -22,4 +22,4 @@ srun python3 train.py \
   --data-workers 8 \
   --patch_baseline False \
   --patch_size 400 \
-  --train_num_steps 1200 \
+  --train_num_steps 10000 \
