@@ -10,7 +10,7 @@ os.environ['MKL_NUM_THREADS'] = '1'
 from diffusion_lib.denoising_diffusion_models import GaussianDiffusion1D, PatchGaussianDiffusion1D
 from diffusion_lib.denoising_diffusion_trainers import Trainer1D
 from models import EBM, DiffusionWrapper
-from models import PatchEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
+from models import PatchEBM, PatchTransformerEBM, PatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import SudokuEBM, SudokuTransformerEBM, SudokuDenoise, SudokuLatentEBM, AutoencodeModel
 from models import SudokuPatchEBM, SudokuPatchDiffusionWrapper # PATCHWISE_ADDITION
 from models import GraphEBM, GraphReverse, GNNConvEBM, GNNDiffusionWrapper, GNNConvDiffusionWrapper, GNNConv1DEBMV2, GNNConv1DV2DiffusionWrapper, GNNConv1DReverse
@@ -45,7 +45,7 @@ parser = argparse.ArgumentParser(description='Train Diffusion Reasoning Model')
 
 parser.add_argument('--dataset', default='inverse', type=str, help='dataset to evaluate')
 parser.add_argument('--inspect-dataset', action='store_true', help='run an IPython embed interface after loading the dataset')
-parser.add_argument('--model', default='mlp', type=str, choices=['mlp', 'mlp-reverse', 'mlp-patch','sudoku', 'sudoku-patch','sudoku-latent', 'sudoku-transformer', 'sudoku-reverse', 'gnn', 'gnn-reverse', 'gnn-conv', 'gnn-conv-1d', 'gnn-conv-1d-v2', 'gnn-conv-1d-v2-reverse']) # PATCHWISE_ADDITION
+parser.add_argument('--model', default='mlp', type=str, choices=['mlp', 'mlp-reverse', 'mlp-patch', 'mlp-patch-t', 'sudoku', 'sudoku-patch','sudoku-latent', 'sudoku-transformer', 'sudoku-reverse', 'gnn', 'gnn-reverse', 'gnn-conv', 'gnn-conv-1d', 'gnn-conv-1d-v2', 'gnn-conv-1d-v2-reverse']) # PATCHWISE_ADDITION
 parser.add_argument('--load-milestone', type=str, default=None, help='load a model from a milestone')
 parser.add_argument('--batch_size', default=2048, type=int, help='size of batch of input to use')
 parser.add_argument('--diffusion_steps', default=10, type=int, help='number of diffusion time steps (default: 10)')
@@ -223,7 +223,13 @@ if __name__ == "__main__":
             patch_size = FLAGS.patch_size
         )
         model = PatchDiffusionWrapper(model)
-
+    elif FLAGS.model == 'mlp-patch-t':
+        model = PatchTransformerEBM(
+            inp_dim = dataset.inp_dim,
+            out_dim = dataset.out_dim,
+            patch_size = FLAGS.patch_size
+        )
+        model = PatchDiffusionWrapper(model)
     elif FLAGS.model == 'sudoku':
         model = SudokuEBM(
             inp_dim = dataset.inp_dim,
@@ -312,7 +318,7 @@ if __name__ == "__main__":
     else:
         results_filename = FLAGS.results_filename
 
-    if FLAGS.model not in ['mlp-patch', 'sudoku-patch']: # PATCHWISE_ADDITION
+    if FLAGS.model not in ['mlp-patch', 'sudoku-patch', 'mlp-patch-t']: # PATCHWISE_ADDITION
         diffusion_fn = GaussianDiffusion1D(
             model,
             seq_length = 32,
@@ -326,7 +332,7 @@ if __name__ == "__main__":
         )
         trainer_fn = Trainer1D
 
-    elif FLAGS.model in ['mlp-patch', 'sudoku-patch']: # PATCHWISE_ADDITION
+    elif FLAGS.model in ['mlp-patch', 'sudoku-patch', 'mlp-patch-t']: # PATCHWISE_ADDITION
         diffusion_fn = PatchGaussianDiffusion1D(
             model,
             seq_length = 32,

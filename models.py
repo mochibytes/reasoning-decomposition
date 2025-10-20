@@ -161,7 +161,7 @@ def swish(x):
     return x * torch.sigmoid(x)
 
 class PatchEBM(nn.Module):
-    def __init__(self, inp_dim, out_dim, patch_size, is_ebm: bool = True):
+    def __init__(self, inp_dim, out_dim, patch_size, is_ebm: bool = True, num_heads: int = 8):
         super(PatchEBM, self).__init__()
         self.inp_dim = inp_dim
         self.out_dim = out_dim
@@ -195,7 +195,19 @@ class PatchEBM(nn.Module):
         nn.init.trunc_normal_(self.pos_embeddings, std=0.02)
 
         # PATCHWISE_ADDITION: changed input to per-patch features for the model (fc1 and fc4)
-        self.fc1 = nn.Linear(patch_size + context_dim + pos_dim + time_dim, h)
+        self.pre_attention_projection = nn.Linear(patch_size + context_dim + pos_dim + time_dim, h)
+
+        # PATCHWISE_ADDITION: add attention layer here
+        self.patch_attention = nn.MultiheadAttention(
+            embed_dim = h,
+            num_heads = num_heads,
+            dropout = 0.0,
+            batch_first = True
+        )
+
+        self.attention_norm = nn.LayerNorm(h)
+
+        self.fc1 = nn.Linear(h, h)
         self.fc2 = nn.Linear(h, h)
         self.fc3 = nn.Linear(h, h)
         self.fc4 = nn.Linear(h, patch_size) # output is prediction per patch, can be made into energy in forward
@@ -234,11 +246,18 @@ class PatchEBM(nn.Module):
         # concatenate all the features
         features = torch.cat([y_flat, global_context_flat, pos_emb, t_emb], dim=-1)
 
+
+        h_patches = self.pre_attention_projection(features)
+        h_patches = h_patches.reshape(batch_size, self.num_patches, -1)
+        attn_out, _ = self.patch_attention(h_patches, h_patches, h_patches) 
+        h_patches = self.attention_norm(h_patches + attn_out)
+        h = h_patches.reshape(batch_size * self.num_patches, -1)
+
         fc2_gain, fc2_bias = torch.chunk(self.t_map_fc2(t_emb), 2, dim=-1)
         fc3_gain, fc3_bias = torch.chunk(self.t_map_fc3(t_emb), 2, dim=-1)
 
         # process all patches in parallel in network
-        h = swish(self.fc1(features))
+        h = swish(self.fc1(h))
         h = swish(self.fc2(h) * (fc2_gain + 1) + fc2_bias)
         h = swish(self.fc3(h) * (fc3_gain + 1) + fc3_bias)
         output = self.fc4(h) # [B * num_patches, patch_size]
@@ -251,6 +270,98 @@ class PatchEBM(nn.Module):
             output = output.reshape(batch_size, self.num_patches, self.patch_size) # [B, num_patches, patch_size]
 
         return output
+    
+class PatchTransformerEBM(nn.Module):
+    def __init__(self, inp_dim, out_dim, patch_size, is_ebm=True, num_heads=8, depth=4):
+        super().__init__()
+        self.inp_dim = inp_dim
+        self.out_dim = out_dim
+        self.patch_size = patch_size
+        self.num_patches = out_dim // patch_size
+        self.is_ebm = is_ebm
+
+        h = 512
+        fourier_dim, time_dim, pos_dim, context_dim = 128, 128, 64, 256
+        assert out_dim % patch_size == 0
+
+        self.time_mlp = nn.Sequential(
+            SinusoidalPosEmb(fourier_dim),
+            nn.Linear(fourier_dim, time_dim),
+            nn.GELU(),
+            nn.Linear(time_dim, time_dim)
+        )
+
+        self.context_encoder = nn.Sequential(
+            nn.Linear(inp_dim, context_dim),
+            nn.GELU(),
+            nn.Linear(context_dim, context_dim)
+        )
+
+        self.pos_embeddings = nn.Parameter(torch.zeros(self.num_patches, pos_dim))
+        nn.init.trunc_normal_(self.pos_embeddings, std=0.02)
+
+        self.pre_projection = nn.Linear(patch_size + context_dim + pos_dim + time_dim, h)
+        self.layers = nn.ModuleList([
+            TransformerBlock(h, num_heads) for _ in range(depth)
+        ])
+
+        self.fc1 = nn.Linear(h, h)
+        self.fc2 = nn.Linear(h, h)
+        self.fc3 = nn.Linear(h, h)
+
+        self.t_map_fc2 = nn.Linear(time_dim, 2 * h)
+        self.t_map_fc3 = nn.Linear(time_dim, 2 * h)
+        self.output_head = nn.Linear(h, patch_size)
+
+    def forward(self, x, y, t_patchwise):
+        B = x.shape[0]
+        global_context = self.context_encoder(x)
+        y_flat = y.reshape(B * self.num_patches, self.patch_size)
+        t_flat = t_patchwise.reshape(B * self.num_patches)
+        t_emb = self.time_mlp(t_flat)
+        pos_emb = self.pos_embeddings.unsqueeze(0).expand(B, -1, -1).reshape(B * self.num_patches, -1)
+        global_context_flat = global_context.unsqueeze(1).expand(-1, self.num_patches, -1).reshape(B * self.num_patches, -1)
+        features = torch.cat([y_flat, global_context_flat, pos_emb, t_emb], dim=-1)
+        h = self.pre_projection(features).reshape(B, self.num_patches, -1)
+
+        for block in self.layers:
+            h = block(h)
+
+        h_flat = h.reshape(B * self.num_patches, -1)
+        fc2_gain, fc2_bias = torch.chunk(self.t_map_fc2(t_emb), 2, dim=-1)
+        fc3_gain, fc3_bias = torch.chunk(self.t_map_fc3(t_emb), 2, dim=-1)
+
+        h = swish(self.fc1(h_flat))
+        h = swish(self.fc2(h) * (fc2_gain + 1) + fc2_bias)
+        h = swish(self.fc3(h) * (fc3_gain + 1) + fc3_bias)
+        out = self.output_head(h)
+
+
+        if self.is_ebm:
+            out = (out ** 2).sum(dim=-1).reshape(B, self.num_patches).sum(dim=-1, keepdim=True)
+        else:
+            out = out.reshape(B, self.num_patches, self.patch_size)
+        return out
+
+
+class TransformerBlock(nn.Module):
+    def __init__(self, dim, num_heads):
+        super().__init__()
+        self.attn = nn.MultiheadAttention(dim, num_heads, batch_first=True)
+        self.norm1 = nn.LayerNorm(dim)
+        self.ff = nn.Sequential(
+            nn.Linear(dim, 4 * dim),
+            nn.GELU(),
+            nn.Linear(4 * dim, dim)
+        )
+        self.norm2 = nn.LayerNorm(dim)
+
+    def forward(self, x):
+        x = x + self.attn(x, x, x, need_weights=False)[0]
+        x = self.norm1(x)
+        x = x + self.ff(x)
+        x = self.norm2(x)
+        return x
 
 
 class EBM(nn.Module):
