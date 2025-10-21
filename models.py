@@ -347,20 +347,19 @@ class PatchTransformerEBM(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, dim, num_heads):
         super().__init__()
-        self.attn = nn.MultiheadAttention(dim, num_heads, batch_first=True)
+        self.attention = nn.MultiheadAttention(dim, num_heads, batch_first=True)
         self.norm1 = nn.LayerNorm(dim)
-        self.ff = nn.Sequential(
+        self.norm2 = nn.LayerNorm(dim)
+        self.mlp = nn.Sequential(
             nn.Linear(dim, 4 * dim),
             nn.GELU(),
             nn.Linear(4 * dim, dim)
         )
-        self.norm2 = nn.LayerNorm(dim)
-
+    
     def forward(self, x):
-        x = x + self.attn(x, x, x, need_weights=False)[0]
-        x = self.norm1(x)
-        x = x + self.ff(x)
-        x = self.norm2(x)
+        # Use standard attention (supports backward through backward)
+        x = x + self.attention(self.norm1(x), self.norm1(x), self.norm1(x), need_weights=False)[0]
+        x = x + self.mlp(self.norm2(x))
         return x
 
 

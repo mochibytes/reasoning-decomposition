@@ -20,4 +20,6 @@ srun python3 train.py \
   --rank 20 \
   --batch_size 256 \
   --data-workers 8 \
-  --patch_size 20
+  --patch_size 20 \
+  --train_num_steps 150000 \
+  --results_filename ~/reasoning-decomposition/results/patch_attn/attn_r20_p20_150k.csv
