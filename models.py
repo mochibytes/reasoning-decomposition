@@ -302,7 +302,7 @@ class PatchTransformerEBM(nn.Module):
 
         self.pre_projection = nn.Linear(patch_size + context_dim + pos_dim + time_dim, h)
         self.layers = nn.ModuleList([
-            TransformerBlock(h, num_heads) for _ in range(depth)
+            TransformerBlockManual(h, num_heads) for _ in range(depth)
         ])
 
         self.fc1 = nn.Linear(h, h)
@@ -343,7 +343,51 @@ class PatchTransformerEBM(nn.Module):
             out = out.reshape(B, self.num_patches, self.patch_size)
         return out
 
-
+class TransformerBlockManual(nn.Module):
+    def __init__(self, dim, num_heads, dropout=0.0):
+        super().__init__()
+        self.dim = dim
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+        
+        assert dim % num_heads == 0, "dim must be divisible by num_heads"
+        
+        self.qkv = nn.Linear(dim, 3 * dim)
+        self.proj = nn.Linear(dim, dim)
+        self.dropout = nn.Dropout(dropout)
+        
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+        self.mlp = nn.Sequential(
+            nn.Linear(dim, 4 * dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(4 * dim, dim),
+            nn.Dropout(dropout)
+        )
+    
+    def forward(self, x):
+        B, N, C = x.shape
+        
+        # Self-attention with manual implementation
+        normed = self.norm1(x)
+        qkv = self.qkv(normed).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        
+        # Standard attention computation
+        attn = (q @ k.transpose(-2, -1)) * self.scale
+        attn = attn.softmax(dim=-1)
+        attn = self.dropout(attn)
+        
+        out = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        out = self.proj(out)
+        out = self.dropout(out)
+        
+        x = x + out
+        x = x + self.mlp(self.norm2(x))
+        return x
+        
 class TransformerBlock(nn.Module):
     def __init__(self, dim, num_heads):
         super().__init__()
