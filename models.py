@@ -168,6 +168,7 @@ class PatchEBM(nn.Module):
         self.patch_size = patch_size
         self.num_patches = out_dim // patch_size
         self.is_ebm = is_ebm
+        self.num_heads = num_heads
 
         h = 512
         fourier_dim, time_dim, pos_dim, context_dim = 128, 128, 64, 256
@@ -200,7 +201,7 @@ class PatchEBM(nn.Module):
         # PATCHWISE_ADDITION: add attention layer here
         self.patch_attention = nn.MultiheadAttention(
             embed_dim = h,
-            num_heads = num_heads,
+            num_heads = self.num_heads,
             dropout = 0.0,
             batch_first = True
         )

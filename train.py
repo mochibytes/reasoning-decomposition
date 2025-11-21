@@ -72,6 +72,7 @@ parser.add_argument('--results_filename', type=str, default=None, help='filename
 
 parser.add_argument('--noising_scheme', type=str, default='random', choices = ['random','uniform-t'])
 parser.add_argument('--sharpness', type=float, default=1.0, help='sharpness of uniform-t noising scheme')
+parser.add_argument('--num_heads', type=int, default=8, help='number of patch attention heads in patch attention model')
 
 if __name__ == "__main__":
     FLAGS = parser.parse_args()
@@ -220,7 +221,8 @@ if __name__ == "__main__":
         model = PatchEBM(
             inp_dim = dataset.inp_dim,
             out_dim = dataset.out_dim,
-            patch_size = FLAGS.patch_size
+            patch_size = FLAGS.patch_size,
+            num_heads=FLAGS.num_heads
         )
         model = PatchDiffusionWrapper(model)
     elif FLAGS.model == 'mlp-patch-t':
