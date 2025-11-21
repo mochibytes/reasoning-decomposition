@@ -65,6 +65,7 @@ class Trainer1D(object):
         )
 
         # LOGGING ADDITION START
+        self.results_filename = results_filename
         os.makedirs(os.path.dirname(results_filename), exist_ok=True)
         file_exists = osp.exists(results_filename)
         file_has_content = file_exists and osp.getsize(results_filename) > 0
@@ -277,6 +278,7 @@ class Trainer1D(object):
 
                 pbar.update(1)
 
+        self.save(f"final-model-{self.results_filename}")
         accelerator.print('training complete')
 
     def evaluate(self, device, milestone, inp=None, label=None, mask=None):
